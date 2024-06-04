@@ -2,6 +2,10 @@
 
 This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.
 
+Features:
+- yolact for python 3.12.3
+- pass configuration as parameter, to call yolact is from another file and change configuration on the fly
+
 ---
 
 # **Y**ou **O**nly **L**ook **A**t **C**oefficien**T**s
