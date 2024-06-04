@@ -30,8 +30,13 @@ class MultiBoxLoss(nn.Module):
         See: https://arxiv.org/pdf/1512.02325.pdf for more details.
     """
 
-    def __init__(self, num_classes, pos_threshold, neg_threshold, negpos_ratio):
+    def __init__(self, num_classes, pos_threshold, neg_threshold, negpos_ratio, configuration=None):
         super(MultiBoxLoss, self).__init__()
+        global cfg
+        if configuration:
+            cfg = configuration
+        self.cfg = configuration
+
         self.num_classes = num_classes
         
         self.pos_threshold = pos_threshold
@@ -69,6 +74,9 @@ class MultiBoxLoss(nn.Module):
             
             * Only if mask_type == lincomb
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
 
         loc_data  = predictions['loc']
         conf_data = predictions['conf']
@@ -118,10 +126,14 @@ class MultiBoxLoss(nn.Module):
             else:
                 crowd_boxes = None
 
-            
-            match(self.pos_threshold, self.neg_threshold,
-                  truths, priors.data, labels[idx], crowd_boxes,
-                  loc_t, conf_t, idx_t, idx, loc_data[idx])
+            if self.cfg:
+                match(self.pos_threshold, self.neg_threshold,
+                    truths, priors.data, labels[idx], crowd_boxes,
+                    loc_t, conf_t, idx_t, idx, loc_data[idx], configuration=self.cfg)
+            else:
+                match(self.pos_threshold, self.neg_threshold,
+                    truths, priors.data, labels[idx], crowd_boxes,
+                    loc_t, conf_t, idx_t, idx, loc_data[idx])
                   
             gt_box_t[idx, :, :] = truths[idx_t[idx]]
 
@@ -135,7 +147,7 @@ class MultiBoxLoss(nn.Module):
         
         # Shape: [batch,num_priors,4]
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
-        
+
         losses = {}
 
         # Localization Loss (Smooth L1)
@@ -213,9 +225,16 @@ class MultiBoxLoss(nn.Module):
         return losses
 
     def class_existence_loss(self, class_data, class_existence_t):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
         return cfg.class_existence_alpha * F.binary_cross_entropy_with_logits(class_data, class_existence_t, reduction='sum')
 
     def semantic_segmentation_loss(self, segment_data, mask_t, class_t, interpolation_mode='bilinear'):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         # Note num_classes here is without the background class so cfg.num_classes-1
         batch_size, num_classes, mask_h, mask_w = segment_data.size()
         loss_s = 0
@@ -240,6 +259,10 @@ class MultiBoxLoss(nn.Module):
 
 
     def ohem_conf_loss(self, conf_data, conf_t, pos, num):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
         if cfg.ohem_use_most_confident:
@@ -301,6 +324,9 @@ class MultiBoxLoss(nn.Module):
         Adapted from https://github.com/clcarwin/focal_loss_pytorch/blob/master/focalloss.py
         Note that this uses softmax and not the original sigmoid from the paper.
         """
+        if self.cfg:
+            cfg = self.cfg
+
         conf_t = conf_t.view(-1) # [batch_size*num_priors]
         conf_data = conf_data.view(-1, conf_data.size(-1)) # [batch_size*num_priors, num_classes]
 
@@ -331,6 +357,10 @@ class MultiBoxLoss(nn.Module):
         Note: To make things mesh easier, the network still predicts 81 class confidences in this mode.
               Because retinanet originally only predicts 80, we simply just don't use conf_data[..., 0]
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         num_classes = conf_data.size(-1)
 
         conf_t = conf_t.view(-1) # [batch_size*num_priors]
@@ -364,6 +394,9 @@ class MultiBoxLoss(nn.Module):
         If class[0] = 1 implies forground and class[0] = 0 implies background then you achieve something
         similar during test-time to softmax by setting class[1:] = softmax(class[1:]) * class[0] and invert class[0].
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
 
         conf_t = conf_t.view(-1) # [batch_size*num_priors]
         conf_data = conf_data.view(-1, conf_data.size(-1)) # [batch_size*num_priors, num_classes]
@@ -394,6 +427,9 @@ class MultiBoxLoss(nn.Module):
         Instead of using softmax, use class[0] to be p(obj) * p(IoU) as in YOLO.
         Then for the rest of the classes, softmax them and apply CE for only the positive examples.
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
 
         conf_t = conf_t.view(-1) # [batch_size*num_priors]
         conf_data = conf_data.view(-1, conf_data.size(-1)) # [batch_size*num_priors, num_classes]
@@ -430,6 +466,10 @@ class MultiBoxLoss(nn.Module):
 
     def direct_mask_loss(self, pos_idx, idx_t, loc_data, mask_data, priors, masks):
         """ Crops the gt masks using the predicted bboxes, scales them down, and outputs the BCE loss. """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+        
         loss_m = 0
         for idx in range(mask_data.size(0)):
             with torch.no_grad():
@@ -477,6 +517,10 @@ class MultiBoxLoss(nn.Module):
         coeffs     should be size [num_pos, num_coeffs]
         instance_t should be size [num_pos] and be values from 0 to num_instances-1
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         num_pos = coeffs.size(0)
         instance_t = instance_t.view(-1) # juuuust to make sure
 
@@ -497,6 +541,10 @@ class MultiBoxLoss(nn.Module):
 
 
     def lincomb_mask_loss(self, pos, idx_t, loc_data, mask_data, priors, proto_data, masks, gt_box_t, score_data, inst_data, labels, interpolation_mode='bilinear'):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         mask_h = proto_data.size(1)
         mask_w = proto_data.size(2)
 
@@ -682,6 +730,10 @@ class MultiBoxLoss(nn.Module):
         return ret
 
     def mask_iou_loss(self, net, maskiou_targets):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         maskiou_net_input, maskiou_t, label_t = maskiou_targets
 
         maskiou_p = net.maskiou_net(maskiou_net_input)

@@ -20,6 +20,8 @@ import torch.utils.data as data
 import numpy as np
 import argparse
 import datetime
+from sys import exit
+import cv2
 
 # Oof
 import eval as eval_script
@@ -169,7 +171,10 @@ class CustomDataParallel(nn.DataParallel):
         
         return out
 
-def train():
+def train(configuration=None, should_compute_validation_map=True):
+    if configuration is not None:
+        cfg = configuration
+
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
 
@@ -184,7 +189,7 @@ def train():
                                     transform=BaseTransform(MEANS))
 
     # Parallel wraps the underlying module, but when saving and loading we don't want that
-    yolact_net = Yolact()
+    yolact_net = Yolact(configuration=cfg)
     net = yolact_net
     net.train()
 
@@ -217,7 +222,8 @@ def train():
     criterion = MultiBoxLoss(num_classes=cfg.num_classes,
                              pos_threshold=cfg.positive_iou_threshold,
                              neg_threshold=cfg.negative_iou_threshold,
-                             negpos_ratio=cfg.ohem_negpos_ratio)
+                             negpos_ratio=cfg.ohem_negpos_ratio,
+                             configuration=cfg)
 
     if args.batch_alloc is not None:
         args.batch_alloc = [int(x) for x in args.batch_alloc.split(',')]
@@ -247,9 +253,10 @@ def train():
     step_index = 0
 
     data_loader = data.DataLoader(dataset, args.batch_size,
-                                  num_workers=args.num_workers,
-                                  shuffle=True, collate_fn=detection_collate,
-                                  pin_memory=True)
+                                num_workers=args.num_workers,
+                                shuffle=True, collate_fn=detection_collate,
+                                pin_memory=True,
+                                generator=torch.Generator(device='cuda'),)
     
     
     save_path = lambda epoch, iteration: SavePath(cfg.name, epoch, iteration).get_path(root=args.save_folder)
@@ -371,7 +378,8 @@ def train():
                     compute_validation_map(epoch, iteration, yolact_net, val_dataset, log if args.log else None)
         
         # Compute validation mAP after training is finished
-        compute_validation_map(epoch, iteration, yolact_net, val_dataset, log if args.log else None)
+        if should_compute_validation_map:
+            compute_validation_map(epoch, iteration, yolact_net, val_dataset, log if args.log else None)
     except KeyboardInterrupt:
         if args.interrupt:
             print('Stopping early. Saving network...')

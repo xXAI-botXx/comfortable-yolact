@@ -70,8 +70,12 @@ class PredictionModule(nn.Module):
                          from parent instead of from this module.
     """
     
-    def __init__(self, in_channels, out_channels=1024, aspect_ratios=[[1]], scales=[1], parent=None, index=0):
+    def __init__(self, in_channels, out_channels=1024, aspect_ratios=[[1]], scales=[1], parent=None, index=0, configuration=None):
         super().__init__()
+        global cfg
+        self.cfg = configuration
+        if self.cfg:
+            cfg = self.cfg
 
         self.num_classes = cfg.num_classes
         self.mask_dim    = cfg.mask_dim # Defined by Yolact
@@ -100,7 +104,7 @@ class PredictionModule(nn.Module):
             self.bbox_layer = nn.Conv2d(out_channels, self.num_priors * 4,                **cfg.head_layer_params)
             self.conf_layer = nn.Conv2d(out_channels, self.num_priors * self.num_classes, **cfg.head_layer_params)
             self.mask_layer = nn.Conv2d(out_channels, self.num_priors * self.mask_dim,    **cfg.head_layer_params)
-            
+
             if cfg.use_mask_scoring:
                 self.score_layer = nn.Conv2d(out_channels, self.num_priors, **cfg.head_layer_params)
 
@@ -142,6 +146,9 @@ class PredictionModule(nn.Module):
             - mask_output: [batch_size, conv_h*conv_w*num_priors, mask_dim]
             - prior_boxes: [conv_h*conv_w*num_priors, 4]
         """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
         # In case we want to use another module's layers
         src = self if self.parent[0] is None else self.parent[0]
         
@@ -214,6 +221,9 @@ class PredictionModule(nn.Module):
     def make_priors(self, conv_h, conv_w, device):
         """ Note that priors are [x,y,width,height] where (x,y) is the center of the box. """
         global prior_cache
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
         size = (conv_h, conv_w)
 
         with timer.env('makepriors'):
@@ -280,7 +290,12 @@ class FPN(ScriptModuleWrapper):
     __constants__ = ['interpolation_mode', 'num_downsample', 'use_conv_downsample', 'relu_pred_layers',
                      'lat_layers', 'pred_layers', 'downsample_layers', 'relu_downsample_layers']
 
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, configuration=None):
+        global cfg
+        self.cfg = configuration
+        if self.cfg:
+            cfg = self.cfg
+
         super().__init__()
 
         self.lat_layers  = nn.ModuleList([
@@ -362,7 +377,12 @@ class FPN(ScriptModuleWrapper):
 
 class FastMaskIoUNet(ScriptModuleWrapper):
 
-    def __init__(self):
+    def __init__(self, configuration=None):
+        global cfg
+        self.cfg = configuration
+        if self.cfg:
+            cfg = self.cfg
+
         super().__init__()
         input_channels = 1
         last_layer = [(cfg.num_classes-1, 1, {})]
@@ -396,7 +416,11 @@ class Yolact(nn.Module):
         - pred_aspect_ratios: A list of lists of aspect ratios with len(selected_layers) (see PredictionModule)
     """
 
-    def __init__(self):
+    def __init__(self, configuration=None):
+        global cfg
+        self.cfg = configuration
+        if self.cfg:
+            cfg = self.cfg
         super().__init__()
 
         self.backbone = construct_backbone(cfg.backbone)
@@ -432,11 +456,11 @@ class Yolact(nn.Module):
         src_channels = self.backbone.channels
 
         if cfg.use_maskiou:
-            self.maskiou_net = FastMaskIoUNet()
+            self.maskiou_net = FastMaskIoUNet(configuration=self.cfg)
 
         if cfg.fpn is not None:
             # Some hacky rewiring to accomodate the FPN
-            self.fpn = FPN([src_channels[i] for i in self.selected_layers])
+            self.fpn = FPN([src_channels[i] for i in self.selected_layers], configuration=self.cfg)
             self.selected_layers = list(range(len(self.selected_layers) + cfg.fpn.num_downsample))
             src_channels = [cfg.fpn.num_features] * len(self.selected_layers)
 
@@ -454,7 +478,8 @@ class Yolact(nn.Module):
                                     aspect_ratios = cfg.backbone.pred_aspect_ratios[idx],
                                     scales        = cfg.backbone.pred_scales[idx],
                                     parent        = parent,
-                                    index         = idx)
+                                    index         = idx,
+                                    configuration = self.cfg)
             self.prediction_layers.append(pred)
 
         # Extra parameters for the extra losses
@@ -476,6 +501,10 @@ class Yolact(nn.Module):
     
     def load_weights(self, path):
         """ Loads weights from a compressed save file. """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         state_dict = torch.load(path)
 
         # For backward compatability, remove these (the new variable is called layers)
@@ -491,6 +520,10 @@ class Yolact(nn.Module):
 
     def init_weights(self, backbone_path):
         """ Initialize weights for training. """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         # Initialize the backbone with the pretrained weights.
         self.backbone.init_backbone(backbone_path)
 
@@ -547,6 +580,9 @@ class Yolact(nn.Module):
                         module.bias.data.zero_()
     
     def train(self, mode=True):
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
         super().train(mode)
 
         if cfg.freeze_bn:
@@ -563,6 +599,10 @@ class Yolact(nn.Module):
     
     def forward(self, x):
         """ The input should be of size [batch_size, 3, img_h, img_w] """
+        global cfg
+        if self.cfg:
+            cfg = self.cfg
+
         _, _, img_h, img_w = x.size()
         cfg._tmp_img_h = img_h
         cfg._tmp_img_w = img_w

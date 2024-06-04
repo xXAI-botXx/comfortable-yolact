@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import types
 from numpy import random
+import random as random_
 from math import sqrt
 
 from data import cfg, MEANS, STD
@@ -306,7 +307,7 @@ class RandomSampleCrop(object):
         height, width, _ = image.shape
         while True:
             # randomly choose a mode
-            mode = random.choice(self.sample_options)
+            mode = random_.choice(self.sample_options)
             if mode is None:
                 return image, masks, boxes, labels
 

@@ -13,7 +13,8 @@ from utils import timer
 from .box_utils import crop, sanitize_coordinates
 
 def postprocess(det_output, w, h, batch_idx=0, interpolation_mode='bilinear',
-                visualize_lincomb=False, crop_masks=True, score_threshold=0):
+                visualize_lincomb=False, crop_masks=True, score_threshold=0,
+                configuration=None):
     """
     Postprocesses the output of Yolact on testing mode into a format that makes sense,
     accounting for all the possible configuration settings.
@@ -31,6 +32,8 @@ def postprocess(det_output, w, h, batch_idx=0, interpolation_mode='bilinear',
         - boxes   [num_det, 4]: The bounding box for each detection in absolute point form.
         - masks   [num_det, h, w]: Full image masks for each detection.
     """
+    if configuration is not None:
+        cfg = configuration
     
     dets = det_output[batch_idx]
     net = dets['net']
