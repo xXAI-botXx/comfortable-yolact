@@ -1,3 +1,5 @@
+This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.
+
 # **Y**ou **O**nly **L**ook **A**t **C**oefficien**T**s
 ```
     ██╗   ██╗ ██████╗ ██╗      █████╗  ██████╗████████╗
