@@ -1,6 +1,8 @@
+
 ---
 
 This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.
+
 
 Features:
 - yolact for python 3.12.3
