@@ -1,12 +1,66 @@
 
 ---
 
-This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.
 
 
-Features:
+<h1 style="text-align: center">Comfortable YOLACT</h1>
+
+
+
+<img src="./logo.jpeg" width=800></img>
+
+Use YOLACT with ease! Train and use it in your code, using this repo.<br>
+<br>
+This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.<br>
+Also adds a toolkit for handle YOLACT.
+
+
+### Features:
+
 - yolact for python 3.12.3
 - pass configuration as parameter, to call yolact is from another file and change configuration on the fly
+- comfortable inference and training
+
+
+
+### Make an Inference
+
+You can call the inference method or the single_inference method in your code or directly run the yolact_toolkit.py file with specified parameters.
+See the example below:
+
+```bash
+cd ~/src/instance-segmentation/comfortable-yolact
+conda activate yolact
+python yolact_toolkit.py \
+    --mode inference \
+    --model_save_path ../weights \
+    --weights_name 2024-06-05_15-39_YOLACT_test_training_with_WISDOM-Sim_399_50000.pth \
+    --data_path /home/tobia/data/wisdom/wisdom-sim/ \
+    --image_path depth_ims \
+    --mask_path modal_segmasks \
+    --data_mode all \
+    --data_amount 5 \
+    --inference_start_idx 0 \
+    --inference_end_idx 50 \
+    --inference_image_name image_00011811.png \
+    --img_max_size 550 \
+    --output_dir ../output \
+    --output_type png \
+    --interactive True \
+    --should_save True \
+    --should_visualize True \
+    --save_visualization True \
+    --should_print True
+```
+
+
+### Train and create your own YOLACT model
+...
+
+
+
+
+It follows the original README from the great original authors: Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee.
 
 ---
 
