@@ -4,6 +4,7 @@
 
 
 <h1 style="text-align: center">Comfortable YOLACT</h1>
+<h4 style="text-align: center">Your toolkit for YOLACT</h4>
 
 
 
@@ -21,6 +22,45 @@ Also adds a toolkit for handle YOLACT.
 - pass configuration as parameter, to call yolact is from another file and change configuration on the fly
 - comfortable inference and training
 
+
+
+### Installation
+
+1. **Install Yolact**<br>
+    Get [Yolact from xXAI-botXx](https://github.com/xXAI-botXx/comfortable-yolact) (unofficial version of YOLACT)<br>
+    ```bash
+    git clone https://github.com/xXAI-botXx/comfortable-yolact.git
+    ```
+
+2. **Install important libs on system**
+    
+    ```bash
+    sudo apt-get install python-setuptools
+    sudo apt-get install python3-dev
+    sudo apt install python3-opencv
+    sudo ubuntu-drivers autoinstall
+    sudo apt install nvidia-cuda-toolkit
+    sudo apt-get install protobuf-compiler
+    ```
+    
+3. **Install Anaconda**
+    - go to [anaconda website](https://conda.io/projects/conda/en/latest/user-guide/install/linux.html) and download anaconda
+    - install anaconda with: ```sudo bash anaoconda-latest-Linux-x86_64.sh```
+    - update conda: ```conda update conda```
+    
+<br>
+
+4. **Setup a conda environment**
+    
+    - navigate to this project folder with bash
+    - then type:
+        ```bash
+        conda env create -f environment.yml
+        ```
+    - now you can activate and use the environment: 
+        ```bash
+        conda activate yolact
+        ```
 
 
 ### Make an Inference

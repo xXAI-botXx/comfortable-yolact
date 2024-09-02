@@ -1421,7 +1421,7 @@ def inference(MODEL_SAVE_PATH,
                     plt.savefig(os.path.join(OUTPUT_DIR, f'visualization_{cleaned_name}.jpg'), dpi=fig.dpi)
 
 
-                if should_print:
+                if SHOULD_PRINT:
                     print("\nShowing Visualization*")
 
                 plt.show()
@@ -1452,7 +1452,7 @@ def inference(MODEL_SAVE_PATH,
                     if SAVE_VISUALIZATION:
                         plt.savefig(os.path.join(OUTPUT_DIR, f'visualization_{cleaned_name}_gt.jpg'), dpi=fig.dpi)
 
-                    if should_print:
+                    if SHOULD_PRINT:
                         print("\nShowing Ground Truth Visualization*")
 
                     plt.show()
@@ -1460,7 +1460,7 @@ def inference(MODEL_SAVE_PATH,
             if INTERACTIVE:
                 user_input = input("\nUser Input: next (enter) | exit (x) ->")
                 if user_input in ["exit", "quit", "q", "x"]:
-                    if should_print:
+                    if SHOULD_PRINT:
                         print("\nSee you later! I hope you enjoyed YOLACT!\n")
                     break
                 else:
@@ -1558,25 +1558,6 @@ if __name__ == "__main__":
 
 
 
-# python yolact_toolkit.py \
-#     --mode inference \
-#     --model_save_path ../weights \
-#     --weights_name 2024-06-05_15-39_YOLACT_test_training_with_WISDOM-Sim_399_50000.pth \
-#     --data_path /home/tobia/data/wisdom/wisdom-sim/ \
-#     --image_path depth_ims \
-#     --mask_path modal_segmasks \
-#     --data_mode all \
-#     --data_amount 5 \
-#     --inference_start_idx 0 \
-#     --inference_end_idx 50 \
-#     --inference_image_name image_00011811.png \
-#     --img_max_size 550 \
-#     --output_dir ../output \
-#     --output_type png \
-#     --interactive True \
-#     --should_save True \
-#     --should_visualize True \
-#     --save_visualization True \
-#     --should_print True
+
 
 
