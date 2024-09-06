@@ -27,7 +27,7 @@ Also adds a toolkit for handle YOLACT.
 ### Installation
 
 1. **Install Yolact**<br>
-    Get [Yolact from xXAI-botXx](https://github.com/xXAI-botXx/comfortable-yolact) (unofficial version of YOLACT)<br>
+    Get [Yolact from xXAI-botXx](https://github.com/xXAI-botXx/comfortable-yolact) (unofficial version of YOLACT, it is this project here!)<br>
     ```bash
     git clone https://github.com/xXAI-botXx/comfortable-yolact.git
     ```
@@ -80,9 +80,9 @@ python yolact_toolkit.py \
     --mask_path modal_segmasks \
     --data_mode all \
     --data_amount 5 \
-    --inference_start_idx 0 \
-    --inference_end_idx 50 \
-    --inference_image_name image_00011811.png \
+    --start_idx 0 \
+    --end_idx 50 \
+    --image_name image_00011811.png \
     --img_max_size 550 \
     --output_dir ../output \
     --output_type png \
@@ -94,13 +94,146 @@ python yolact_toolkit.py \
 ```
 
 
+
+Or you can use following Notebook:
+[./inference.ipynb](./inference.ipynb)
+
+
+
+
 ### Train and create your own YOLACT model
-...
+
+```bash
+cd ~/src/instance-segmentation/comfortable-yolact
+conda activate yolact
+nohup python yolact_toolkit.py \
+    --mode train \
+    --model_save_path ../weights \
+    --weights_name 2024-06-05_15-39_YOLACT_test_training_with_WISDOM-Sim_399_50000.pth \
+    --data_path /home/tobia/data/wisdom/wisdom-sim/ \
+    --image_path depth_ims \
+    --mask_path modal_segmasks \
+    --data_mode all \
+    --data_amount 5 \
+    --start_idx 0 \
+    --end_idx 50 \
+    --img_max_size 550 \
+    --output_dir ../output \
+    --should_visualize True \
+    --should_print True \
+    --using_experiment_tracking True \
+    --create_new_experiment False \
+    --experiment_name Instance Segementation Optonic \
+    -- epochs 20 \
+    --batch_size 5 \
+    --learning_rate 1e-4 \
+    --momentum 0.9 \
+    --decay 5e-4 \
+    --warm_up_iter 500 \
+    --warm_up_init_lr 1e-4 \
+    --gamma 0.1 \
+    --freeze_batch_normalization False \
+    --backbone resnet101 \
+    --max_instances 100 \
+    --fpn_features 256 \
+    --train_data_shuffle True \
+    --nms_top_k 200 \
+    --nms_conf_thresh 0.09 \
+    --nms_thresh 0.5 \
+    --log_folder ./logs/ \
+    > output.log 2>&1 &
+```
+
+
+=> You can see the Output in following File: [output.log](./output.log)
+
+<br>
+<br>
+
+
+Or you can use following Notebook:
+[./train.ipynb](./train.ipynb)
+
+You can also start a **notebook** remotly on another pc **in background**:
+- start vs code remote session (with remote ssh extension)
+
+- go to [remote-server](#start-ssh-connection) with a terminal
+
+- ``` terminal
+  conda activate yolact
+  ```
+
+- ``` terminal
+  conda install jupyter
+  ```
+
+- Navigate to your workdirectory
+
+- start a jupyter-server with: <br>
+
+``` terminal
+nohup jupyter notebook > jupyter_output.log 2>&1 &
+```
+
+- connect VS Code to the jupyter server:
+
+  - select another kernel
+
+  - select existing jupyter server
+
+  - copy link from starting server to the prompt
+
+    - ```bash
+      cat jupyter_output.log
+      ```
+
+Now you can run your code and disconnect and connect back and the code should still work.
+Because the jupyter-server is not started from VS Code, so it still runs and the VS-Code detect it and connect to it again.
+
+<br>
+<br>
+<br>
+
+You can also run the **MLFlow UI** and the **tensorboard**:
+
+1. ``` bash
+   conda activate yolact
+    ```
+
+2. ``` bash
+    tensorboard --logdir=~/src/instance-segmentation/runs --host=0.0.0.0
+    ```
+   
+    Change the logfile-dirname as you need.
+
+3. Now open the browser and type:
+   http://10.24.3.16:6006
+
+   Changethe IP-Address as you need it. And you may use 127.0.0.1:6006 if you use just one local system.
+
+<br>
+
+4. ``` bash 
+   mlflow ui --host=0.0.0.0 --backend-store-uri file:///home/local-admin/src/instance-segmentation/mlruns
+    ```
+
+5. Now open the browser and type:
+   http://10.24.3.16:5000
+
+Hint: You can search for your mlflow directory with following command (navigate to your home folder before):
+
+```bash
+find . -type d -name mlruns 2>/dev/null
+```
 
 
 
 
-It follows the original README from the great original authors: Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee.
+---
+
+
+**It follows the original README from the great original authors: Daniel Bolya and Chong Zhou and Fanyi Xiao and Yong Jae Lee.**
+
 
 ---
 
