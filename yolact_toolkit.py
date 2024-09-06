@@ -55,7 +55,6 @@ from layers.output_utils import postprocess
 from eval import prep_display
 from layers.modules import MultiBoxLoss
 from utils.functions import MovingAverage
-from train import CustomDataParallel, NetLoss, set_lr
 
 # Experiment tracking
 import mlflow
@@ -1571,6 +1570,14 @@ def torch_train_loop(
         weight_save_interval,
         keep_only_latest_weights,
         should_print=True):
+    # import import yolact train functions
+    sys.argv = ['train.py', 
+            f'--batch_size={batch_size}', 
+            f'--log_folder={log_folder}',
+            f'--save_folder={model_save_path}',
+            '--cuda=True']
+    from train import CustomDataParallel, NetLoss, set_lr
+
     if should_print:
         print("Create the model and preparing for training...")
 
@@ -1820,8 +1827,6 @@ def train(
         TRAIN_START_IDX,
         TRAIN_END_IDX,
         IMG_MAX_SIZE,
-        OUTPUT_DIR,
-        SHOULD_SAVE=True,
         SHOULD_PRINT=True,
         USING_EXPERIMENT_TRACKING=False,
         CREATE_NEW_EXPERIMENT=False,
@@ -2023,13 +2028,6 @@ def train(
                                         fpn_relu_downsample_layers=False,
                                         fpn_relu_pred_layers=True)
 
-    if SHOULD_SAVE:
-        # make sure outputdir exists and reset it
-        if not os.path.exists(OUTPUT_DIR):
-            os.mkdir(OUTPUT_DIR)
-        else:
-            for cur_file in os.listdir(OUTPUT_DIR):
-                os.remove(os.path.join(OUTPUT_DIR, cur_file))
 
     if SHOULD_PRINT:
         print(f"Instance Segmentation with YOLACT (train)\n")
