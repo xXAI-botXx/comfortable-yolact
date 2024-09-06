@@ -2639,7 +2639,7 @@ if __name__ == "__main__":
     parser.add_argument("--weights_save_interval", "-wsi", help="Every X steps the model should be saved", default=1e5, type=int) 
     parser.add_argument("--keep_only_latest_weights", "-kolw", help="Every X steps the model should be saved", default=False, type=bool) 
     parser.add_argument("--backbone_init_weights", "-biw", help="Backbone initial weights", default="resnet101_reducedfc.pth", type=str) 
-    parser.add_argument("--learning_rate_adjustment", "-lra", help="When adjusting the learning-rate?", default=[280000, 600000, 700000, 750000], type=list) 
+    parser.add_argument("--learning_rate_adjustment", "-lra", nargs='+',  help="When adjusting the learning-rate?", default=[280000, 600000, 700000, 750000], type=int) 
     parser.add_argument("--momentum", "-mom", help="Amount of momentum of the learning-rate", default=0.9, type=float) 
     parser.add_argument("--decay", "-dcy", help="Decay of nn", default=5e-4, type=float) 
     parser.add_argument("--warm_up_iter", "-wui", help="Until when iteration the warm-up should go", default=500, type=int) 

@@ -127,6 +127,10 @@ nohup python yolact_toolkit.py \
     -- epochs 20 \
     --batch_size 5 \
     --learning_rate 1e-4 \
+    --name 2024-09-06_train_yolact_test_1 \
+    --weights_save_interval 1e5 \
+    --backbone_init_weights resnet101_reducedfc.pth \
+    --learning_rate_adjustment 280000 600000 700000 750000 \
     --momentum 0.9 \
     --decay 5e-4 \
     --warm_up_iter 500 \
