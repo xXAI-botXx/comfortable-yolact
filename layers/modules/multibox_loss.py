@@ -324,6 +324,7 @@ class MultiBoxLoss(nn.Module):
         Adapted from https://github.com/clcarwin/focal_loss_pytorch/blob/master/focalloss.py
         Note that this uses softmax and not the original sigmoid from the paper.
         """
+        global cfg
         if self.cfg:
             cfg = self.cfg
 
