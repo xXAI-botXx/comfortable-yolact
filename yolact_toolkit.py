@@ -1548,6 +1548,9 @@ def log(file_path, content, reset_logs=False):
 ### Training ###
 ################
 def torch_train_loop(
+        CustomDataParallel, 
+        NetLoss, 
+        set_lr,
         cfg, 
         name,
         dataset_train, 
@@ -1570,13 +1573,13 @@ def torch_train_loop(
         weight_save_interval,
         keep_only_latest_weights,
         should_print=True):
-    # import import yolact train functions
-    sys.argv = ['train.py', 
-            f'--batch_size={batch_size}', 
-            f'--log_folder={log_folder}',
-            f'--save_folder={model_save_path}',
-            '--cuda=True']
-    from train import CustomDataParallel, NetLoss, set_lr
+    # # import import yolact train functions
+    # sys.argv = ['train.py', 
+    #         f'--batch_size={batch_size}', 
+    #         f'--log_folder={log_folder}',
+    #         f'--save_folder={model_save_path}',
+    #         '--cuda=True']
+    # from train import CustomDataParallel, NetLoss, set_lr
 
     if should_print:
         print("Create the model and preparing for training...")
@@ -1658,6 +1661,7 @@ def torch_train_loop(
         for cur_epoch in range(num_epochs):
             # for batch_idx, cur_data in enumerate(dataset_train):
             for cur_data in dataset_train:
+            
                 # stop, if max-iterations are reached
                 if cur_iteration >= max_iter:
                     break
@@ -1686,7 +1690,11 @@ def torch_train_loop(
                     errors += [[e, cur_data]]
                     cur_iteration += 1
                     print(f"Error Occured: {e}")
+                    raise e
                     continue
+                
+                torch.cuda.empty_cache()
+                del cur_data
                 
                 losses = { k: (v).mean() for k,v in losses.items() } # Mean here because Dataparallel
                 loss = sum([losses[k] for k in losses])
@@ -1774,6 +1782,8 @@ def torch_train_loop(
                 cur_iteration += 1
                 success += 1    
                 # cur_iteration*batch_size == cur_epoch * len(train_loader) + batch_idx ?
+                
+                torch.cuda.empty_cache()
             
     except KeyboardInterrupt:
         print("Stopping early. Saving network...")
@@ -1853,6 +1863,14 @@ def train(
         NMS_CONF_THRESH=0.005,
         NMS_THRESH=0.5,
         LOG_FOLDER="./logs/"):
+    
+    # import import yolact train functions
+    sys.argv = ['train.py', 
+            f'--batch_size={BATCH_SIZE}', 
+            f'--log_folder={LOG_FOLDER}',
+            f'--save_folder={MODEL_SAVE_PATH}',
+            '--cuda=True']
+    from train import CustomDataParallel, NetLoss, set_lr
     
     # cnn_train_test()
 
@@ -2004,7 +2022,7 @@ def train(
                                         augment_random_flip=False,
                                         augment_random_rot90=False,
                                         data_name="train data",
-                                        data_has_gt=False,
+                                        data_has_gt=True,
                                         data_class_names=["object"]*80,
                                         backbone_name=BACKBONE,
                                         backbone_weight_path=BACKBONE_INIT_WEIGHTS,
@@ -2116,6 +2134,9 @@ def train(
             mlflow.pytorch.autolog()
 
             model = torch_train_loop(
+                        CustomDataParallel=CustomDataParallel, 
+                        NetLoss=NetLoss, 
+                        set_lr=set_lr,
                         cfg=configuration,
                         name=NAME,
                         dataset_train=train_loader, 
@@ -2145,6 +2166,9 @@ def train(
             mlflow.end_run()
     else:
         model = torch_train_loop(
+                    CustomDataParallel=CustomDataParallel, 
+                    NetLoss=NetLoss, 
+                    set_lr=set_lr,
                     cfg=configuration,
                     name=NAME,
                     dataset_train=train_loader, 
