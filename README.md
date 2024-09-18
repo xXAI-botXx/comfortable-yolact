@@ -32,7 +32,7 @@ Also adds a toolkit for handle YOLACT.
     git clone https://github.com/xXAI-botXx/comfortable-yolact.git
     ```
 
-2. **Install important libs on system**
+2. **Install important libs on system** (maybe it will also work without these)
     
     ```bash
     sudo apt-get install python-setuptools
@@ -41,6 +41,7 @@ Also adds a toolkit for handle YOLACT.
     sudo ubuntu-drivers autoinstall
     sudo apt install nvidia-cuda-toolkit
     sudo apt-get install protobuf-compiler
+    sudo apt install build-essential
     ```
     
 3. **Install Anaconda**
@@ -61,6 +62,14 @@ Also adds a toolkit for handle YOLACT.
         ```bash
         conda activate yolact
         ```
+
+
+<br><br>
+
+**Check your installation:**
+You can check your installation using the [installation.ipynb](./installation.ipynb). This file will try to train and inference a YOLACT model. THis file don't uses the yolact-toolkit, because it want to check the core yolact functionality.<br>
+It also provides information about the model-architecture, the input format and the output format details.
+
 
 
 ### Make an Inference
@@ -157,6 +166,8 @@ nohup python yolact_toolkit.py \
 
 Or you can use following Notebook:
 [./train.ipynb](./train.ipynb)
+
+<br><br>
 
 You can also start a **notebook** remotly on another pc **in background**:
 - start vs code remote session (with remote ssh extension)
