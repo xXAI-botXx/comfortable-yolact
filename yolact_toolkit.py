@@ -1206,7 +1206,9 @@ class Custom_YOLACT_train_Dataset(torch.utils.data.Dataset):
         # masks = torch.tensor(mask, dtype=torch.uint8)
         # classes = torch.tensor(classes, dtype=torch.int64)
 
-        num_crowded_objects = np.int64(masks.size()[0])    # np.int64(masks.size()[0])
+        # objects which are annotated but should not get a individual bounding box and mask -> 'crowded'
+        # num_crowded_objects = np.int64(masks.size()[0])    # np.int64(masks.size()[0])
+        num_crowded_objects = np.int64(0) 
         # torch.tensor(np.int64(num_crowded_objects), dtype=torch.int64)
 
         return torch.from_numpy(image).permute(2, 0, 1), torch.from_numpy(boxes_and_classes).float(), masks.float(), num_crowded_objects
@@ -1690,7 +1692,7 @@ def torch_train_loop(
                     errors += [[e, cur_data]]
                     cur_iteration += 1
                     print(f"Error Occured: {e}")
-                    raise e
+                    # raise e
                     continue
                 
                 torch.cuda.empty_cache()
