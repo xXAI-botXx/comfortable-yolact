@@ -1824,7 +1824,7 @@ def torch_train_loop(
     
     # Saving
     cpu_model.save_weights(os.path.join(model_save_path, f"{name}_{cur_epoch}_{cur_iteration}.pth"))
-    print(f"\nCongratulations!!!! Your Model trained succefull!\n\n Your model waits here for you: '{os.path.join(MODEL_SAVE_PATH, f'{name}_{cur_epoch}_{cur_iteration}.pth')}'")
+    print(f"\nCongratulations!!!! Your Model trained succefull!\n\n Your model waits here for you: '{os.path.join(model_save_path, f'{name}_{cur_epoch}_{cur_iteration}.pth')}'")
 
     return model
 
