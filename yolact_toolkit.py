@@ -29,6 +29,7 @@ from IPython.display import clear_output
 import pickle
 import multiprocessing
 from datetime import datetime, timedelta
+from enum import Enum
 
 # Image Utils
 import numpy as np
@@ -69,6 +70,10 @@ import mlflow
 #     Clears the print output
 #     """
 #     os.system('cls')
+
+class DATA_FORMAT(Enum):
+    MULTI_SCENES_SINGLE_DIR = 0
+    DUAL_DIR = 1
 
 
 
@@ -586,13 +591,13 @@ def get_configuration_from_json(json_file):
 
 
 
-def load_datanames(path_to_images,
-                    amount,     # for random mode
-                    start_idx,  # for range mode
-                    end_idx,    # for range mode
-                    image_name, # for single mode
-                    data_mode="all",
-                    should_print=True):
+def load_datanames_dual_dir(path_to_images,
+                            amount,     # for random mode
+                            start_idx,  # for range mode
+                            end_idx,    # for range mode
+                            image_name, # for single mode
+                            data_mode="all",
+                            should_print=True):
     """
     Loads file paths from a specified directory based on the given mode.
 
@@ -652,6 +657,91 @@ def load_datanames(path_to_images,
 
     # data_amount = len(images)
     return images
+
+
+
+def load_datanames_multi_scene_single_dir(path_to_dataset,
+                                            amount,     # for random mode
+                                            start_idx,  # for range mode
+                                            end_idx,    # for range mode
+                                            image_name, # for single mode
+                                            data_mode="all",
+                                            should_print=True):
+    """
+    Loads file paths from a specified directory based on the given mode.
+
+    Parameters:
+    path_to_images (str): The path to the directory containing images.
+    amount (int): Number of random images to select (used in 'random' mode).
+    start_idx (int): The starting index of the range of images to select (used in 'range' mode).
+    end_idx (int): The ending index of the range of images to select (used in 'range' mode).
+    image_name (str): The name of a single image to select (used in 'single' mode).
+    data_mode (str, optional): The mode for selecting images. It can be one of the following:
+        - 'all': Selects all images.
+        - 'random': Selects a random set of images up to the specified amount.
+        - 'range': Selects a range of images from start_idx to end_idx.
+        - 'single': Selects a single image specified by image_name.
+        Default is 'all'.
+    should_print (bool, optional): Whether to print information about selected images. Default is True.
+
+    Returns:
+    list: A list of file-names of the selected images.
+
+    Raises:
+    ValueError: If an invalid data_mode is provided.
+
+    Example:
+    >>> load_data_paths('/path/to/images', amount=10, start_idx=0, end_idx=10, image_name='image1.jpg', data_mode='random')
+    ['image2.jpg', 'image5.jpg', 'image8.jpg', ...]
+
+    Notice: Detects all forms of files and directories and doesn't filter on them.
+    """
+    all_scenes = os.listdir(path_to_dataset)
+
+    image_mask_pairs = dict()
+
+    # Validation / Test
+
+    if data_mode == "all":
+        data_indices = np.arange(0, len(all_scenes))
+    elif data_mode == "random":
+        data_indices = np.random.randint(0, len(all_scenes), amount)
+    elif data_mode == "range":
+        end_idx = min(len(all_scenes)-1, end_idx)
+        data_indices = np.arange(start_idx, end_idx+1)
+    elif data_mode == "single":
+        if image_name is None:
+            raise ValueError("image_name is None!")
+        data_indices = []
+        
+        path = "/".join(image_name.split("/")[:-1])
+        idx = ".".join(image_name.split(".")[:-1]).split("_")[-1]
+        mask_name = os.path.join(path, f"grey_mask_{idx}.png")
+        mask_name = mask_name if os.path.exists(mask_name) else None
+
+        image_mask_pairs[0] = [image_name, mask_name]
+    else:
+        raise ValueError(f"DATA_MODE has a illegal value: {data_mode}")
+
+    for cur_idx in data_indices:
+        cur_scene = all_scenes[cur_idx]
+        raw_name = f"raw_{cur_idx}.png"
+        mask_name = f"grey_mask_{cur_idx}.png"
+        for cur_file in os.listdir(os.path.join(path_to_dataset, cur_scene)):
+            if cur_file.startswith("raw"):
+                raw_name = cur_file
+            elif cur_file.startswith("grey_mask"):
+                mask_name = cur_file
+
+        image_path = os.path.join(path_to_dataset, cur_scene, cur_scene, raw_name)
+        mask_path = os.path.join(path_to_dataset, cur_scene, cur_scene, mask_name)
+        image_mask_pairs[cur_idx] = [image_path, mask_path]
+
+    if should_print:
+        print(f"Inference Scene Indices:\n{data_indices}")
+        print(f"Inference Data Amount: {len(image_mask_pairs.keys())}")
+
+    return image_mask_pairs
 
 
 
@@ -1015,7 +1105,7 @@ def eval_pred(pred, ground_truth, should_print=True):
 
 
 
-class Custom_YOLACT_inference_Dataset(torch.utils.data.Dataset):
+class Custom_YOLACT_inference_Dataset_Dual_Dir(torch.utils.data.Dataset):
     """
     A custom dataset class for YOLACT inference, extending PyTorch's Dataset class.
 
@@ -1153,17 +1243,109 @@ class Custom_YOLACT_inference_Dataset(torch.utils.data.Dataset):
             print(f"{'-'*32}\n")
 
 
-class Custom_YOLACT_train_Dataset(torch.utils.data.Dataset):
+class Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Dataset):
+    """
+    A PyTorch Dataset for loading data for YOLACT-Model.
+
+    The Dataloader expect a folder for every scene/image. Containing a mask and a rgb raw input image.
+    The input raw image have to start with 'raw' and the mask have to start with 'mask' or with 'grey'.
+    """
+    def __init__(self, image_mask_pair,
+                    data_type=".png", size=550, should_print=True):
+        self.image_mask_pair = image_mask_pair
+        self.size = size
+        self.data_type = data_type
+        self.should_print = should_print
+        if len(self.image_mask_pair.keys()) == 0:
+            raise ValueError("There are no images to train!")
+        self.verify_data()
+        if len(self.image_mask_pair.keys()) == 0:
+            raise ValueError("There are no images to train!")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+
+        img_path, mask_path = self.image_mask_pair[idx]
+
+        # load image
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"File '{img_path}' not found!")
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image, [self.size, self.size])
+        prepared_image = torch.from_numpy(image.astype(np.float32)).permute(2, 0, 1).float() 
+
+        # load mask
+        if mask_path is not None:
+            masks = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+            boxes_and_classes = get_bounding_boxes(masks)
+
+            return prepared_image, img_path, boxes_and_classes, torch.from_numpy(masks)
+        
+        return prepared_image, img_path
+
+    def verify_data(self):
+        updated_images = []
+        if self.should_print:
+            print(f"\n{'-'*32}\nVerifying Data...")
+
+        images_found = 0
+        images_not_found = []
+
+        masks_found = 0
+        masks_not_found = []
+
+        for image_path, mask_path in self.image_mask_pair:
+
+            image_exists = os.path.exists(image_path) and os.path.isfile(image_path) and any([image_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
+            if image_exists:
+                images_found += 1
+            else:
+                images_not_found += [image_path]
+
+            mask_exists = os.path.exists(mask_path) and os.path.isfile(mask_path) and any([mask_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
+            if mask_exists:
+                masks_found += 1
+            else:
+                masks_not_found += [mask_path]
+
+            if image_exists and mask_exists:
+                updated_images += [image_path, mask_path]
+
+        if self.should_print:
+            print(f"\n> > > Images < < <\nFound: {round((images_found/len(self.image_mask_pair.keys()))*100, 2)}% ({images_found}/{len(self.image_mask_pair.keys())})")
+        if len(images_not_found) > 0 and self.should_print:
+            print("\n Not Found:")
+        for not_found in images_not_found:
+            if self.should_print:
+                print(f"    -> {not_found}")
+
+        if self.should_print:
+            print(f"\n> > > Masks < < <\nFound: {round((masks_found/len(self.image_mask_pair.keys()))*100, 2)}% ({masks_found}/{len(self.image_mask_pair.keys())})")
+        if len(masks_not_found) > 0 and self.should_print:
+            print("\n Not Found:")
+        for not_found in masks_not_found:
+            if self.should_print:
+                print(f"    -> {not_found}")
+
+        if self.should_print:
+            print(f"\nUpdating Images...")
+            print(f"From {len(self.image_mask_pair.keys())} to {len(updated_images.keys())} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images.keys())/len(self.images.keys())) )*100, 2)}%")
+        self.image_mask_pair = updated_images
+        if self.should_print:
+            print(f"{'-'*32}\n")
+
+
+class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
     """
     A PyTorch Dataset for loading data for YOLACT-Model.
 
     The Dataloader expect 2 folders, one with the images and one with the masks.
     The masks are decoded like: 0 is the background and every other number stands for an object.
     The mask has the same size and same name like the original image.
-
-    Also there should be a indices, so that the loader knows which images to load.
-
-    The image and mask name should be equal to the indices + .png/jpg
     """
     def __init__(self, images, img_folder_path, mask_folder_path, transform,
                     data_type=".png", should_print=True):
@@ -1264,6 +1446,105 @@ class Custom_YOLACT_train_Dataset(torch.utils.data.Dataset):
             print(f"\nUpdating Images...")
             print(f"From {len(self.images)} to {len(updated_images)} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images)/len(self.images)) )*100, 2)}%")
         self.images = updated_images
+        if self.should_print:
+            print(f"{'-'*32}\n")
+
+class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Dataset):
+    """
+    A PyTorch Dataset for loading data for YOLACT-Model.
+
+    The Dataloader expect a folder for every scene/image. Containing a mask and a rgb raw input image.
+    The input raw image have to start with 'raw' and the mask have to start with 'mask' or with 'grey'.
+    """
+    def __init__(self, image_mask_pair, transform,
+                    data_type=".png", should_print=True):
+        self.image_mask_pair = image_mask_pair
+        self.transform = transform
+        self.data_type = data_type
+        self.should_print = should_print
+        if len(self.images) == 0:
+            raise ValueError("There are no images to train!")
+        self.verify_data()
+        if len(self.images) == 0:
+            raise ValueError("There are no images to train!")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+
+        img_path, mask_path = self.image_mask_pair[idx]
+
+        # load image
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"File '{img_path}' not found!")
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # load mask
+        if not os.path.exists(mask_path):
+            raise FileNotFoundError(f"File '{mask_path}' not found!")
+        masks = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+
+        boxes_and_classes = get_bounding_boxes(masks)
+
+        image, masks, boxes_and_classes = self.transform(image, masks, boxes_and_classes)
+
+        # objects which are annotated but should not get a individual bounding box and mask -> 'crowded'
+        num_crowded_objects = np.int64(0) 
+        # torch.tensor(np.int64(num_crowded_objects), dtype=torch.int64)
+
+        return torch.from_numpy(image).permute(2, 0, 1), torch.from_numpy(boxes_and_classes).float(), masks.float(), num_crowded_objects
+        # return torch.from_numpy(image).permute(2, 0, 1), boxes_and_classes, masks, num_crowded_objects
+
+    def verify_data(self):
+        updated_images = []
+        if self.should_print:
+            print(f"\n{'-'*32}\nVerifying Data...")
+
+        images_found = 0
+        images_not_found = []
+
+        masks_found = 0
+        masks_not_found = []
+
+        for image_path, mask_path in self.image_mask_pair:
+
+            image_exists = os.path.exists(image_path) and os.path.isfile(image_path) and any([image_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
+            if image_exists:
+                images_found += 1
+            else:
+                images_not_found += [image_path]
+
+            mask_exists = os.path.exists(mask_path) and os.path.isfile(mask_path) and any([mask_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
+            if mask_exists:
+                masks_found += 1
+            else:
+                masks_not_found += [mask_path]
+
+            if image_exists and mask_exists:
+                updated_images += [image_path, mask_path]
+
+        if self.should_print:
+            print(f"\n> > > Images < < <\nFound: {round((images_found/len(self.image_mask_pair.keys()))*100, 2)}% ({images_found}/{len(self.image_mask_pair.keys())})")
+        if len(images_not_found) > 0 and self.should_print:
+            print("\n Not Found:")
+        for not_found in images_not_found:
+            if self.should_print:
+                print(f"    -> {not_found}")
+
+        if self.should_print:
+            print(f"\n> > > Masks < < <\nFound: {round((masks_found/len(self.image_mask_pair.keys()))*100, 2)}% ({masks_found}/{len(self.image_mask_pair.keys())})")
+        if len(masks_not_found) > 0 and self.should_print:
+            print("\n Not Found:")
+        for not_found in masks_not_found:
+            if self.should_print:
+                print(f"    -> {not_found}")
+
+        if self.should_print:
+            print(f"\nUpdating Images...")
+            print(f"From {len(self.image_mask_pair.keys())} to {len(updated_images.keys())} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images.keys())/len(self.images.keys())) )*100, 2)}%")
+        self.image_mask_pair = updated_images
         if self.should_print:
             print(f"{'-'*32}\n")
 
@@ -1845,7 +2126,7 @@ def train(
         EXPERIMENT_NAME="Instance Segementation",
         EPOCHS=20,
         BATCH_SIZE=5,
-        LEARNING_RATE=1e-4,
+        LEARNING_RATE=1e-3,
         NAME="train",
         WEIGHT_SAVE_INTERVAL=1e5,
         KEEP_ONLY_LATEST_WEIGHTS=True,
@@ -1854,7 +2135,7 @@ def train(
         MOMENTUM=0.9,
         DECAY=5e-4,
         WARM_UP_ITER=500,
-        WARM_UP_INIT_LR=1e-4,
+        WARM_UP_INIT_LR=1e-5,
         GAMMA=0.1,
         FREEZE_BATCH_NORMALIZATION=False,
         BACKBONE ="resnet101",
@@ -1862,9 +2143,10 @@ def train(
         FPN_FEATURES=256,
         TRAIN_DATA_SHUFFLE=True,
         NMS_TOP_K=200,
-        NMS_CONF_THRESH=0.005,
-        NMS_THRESH=0.5,
-        LOG_FOLDER="./logs/"):
+        NMS_CONF_THRESH=0.3, # 0.005,
+        NMS_THRESH=0.6,    # 0.5
+        LOG_FOLDER="./logs/",
+        USED_DATA_FORMAT=DATA_FORMAT.DUAL_DIR):
     
     # import import yolact train functions
     sys.argv = ['train.py', 
@@ -1882,15 +2164,26 @@ def train(
     train_transform = Train_YOLACT_Augmentation(IMG_MAX_SIZE=IMG_MAX_SIZE)
 
     # load image names
-    train_images = load_datanames(
-        path_to_images=PATH_TO_TRAIN_IMAGES,
-        amount=TRAIN_DATA_AMOUNT,     # for random mode
-        start_idx=TRAIN_START_IDX,  # for range mode
-        end_idx=TRAIN_END_IDX,    # for range mode
-        image_name=None, # for single mode
-        data_mode=TRAIN_DATA_MODE,
-        should_print=SHOULD_PRINT
-    )
+    if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
+        train_images = load_datanames_dual_dir(
+            path_to_images=PATH_TO_TRAIN_IMAGES,
+            amount=TRAIN_DATA_AMOUNT,     # for random mode
+            start_idx=TRAIN_START_IDX,  # for range mode
+            end_idx=TRAIN_END_IDX,    # for range mode
+            image_name=None, # for single mode
+            data_mode=TRAIN_DATA_MODE,
+            should_print=SHOULD_PRINT
+        )
+    elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
+        train_images = load_datanames_multi_scene_single_dir(
+            path_to_dataset=PATH_TO_TRAIN_IMAGES,
+            amount=TRAIN_DATA_AMOUNT,     # for random mode
+            start_idx=TRAIN_START_IDX,  # for range mode
+            end_idx=TRAIN_END_IDX,    # for range mode
+            image_name=None, # for single mode
+            data_mode=TRAIN_DATA_MODE,
+            should_print=SHOULD_PRINT
+        )
 
     DATA_SIZE = len(train_images)
     ITERATIONS_PER_EPOCHE = (DATA_SIZE // BATCH_SIZE)
@@ -1898,14 +2191,22 @@ def train(
     NUM_WORKERS = multiprocessing.cpu_count() // 2
     
     # load data
-    train_dataset = Custom_YOLACT_train_Dataset(
-                        images=train_images, 
-                        img_folder_path=PATH_TO_TRAIN_IMAGES, 
-                        mask_folder_path=PATH_TO_TRAIN_MASKS, 
-                        data_type=".png",
-                        transform=train_transform,
-                        should_print=SHOULD_PRINT
-                    )
+    if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
+        train_dataset = Custom_YOLACT_train_Dataset_Dual_Dir(
+                            images=train_images, 
+                            img_folder_path=PATH_TO_TRAIN_IMAGES, 
+                            mask_folder_path=PATH_TO_TRAIN_MASKS, 
+                            data_type=".png",
+                            transform=train_transform,
+                            should_print=SHOULD_PRINT
+                        )
+    elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
+        train_dataset = Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(
+                            image_mask_pair=train_images, 
+                            data_type=".png",
+                            transform=train_transform,
+                            should_print=SHOULD_PRINT
+                        )
 
     train_loader = DataLoader(
                         train_dataset, 
@@ -2254,7 +2555,8 @@ def inference(MODEL_SAVE_PATH,
               SHOULD_SAVE=True,
               SHOULD_VISUALIZE=False,
               SAVE_VISUALIZATION=True,
-              SHOULD_PRINT=True):
+              SHOULD_PRINT=True,
+              USED_DATA_FORMAT=DATA_FORMAT.DUAL_DIR):
     """
     Makes an inference from a model.
     """
@@ -2262,23 +2564,44 @@ def inference(MODEL_SAVE_PATH,
     device = get_device()
 
     # load image names
-    inference_images = load_datanames(path_to_images=PATH_TO_INFERENCE_IMAGES,
-                                        amount=INFERENCE_DATA_AMOUNT,     # for random mode
-                                        start_idx=INFERENCE_START_IDX,  # for range mode
-                                        end_idx=INFERENCE_END_IDX,    # for range mode
-                                        image_name=INFERENCE_IMAGE_NAME, # for single mode
-                                        data_mode=INFERENCE_DATA_MODE,
-                                        should_print=SHOULD_PRINT)
+    if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
+        inference_images = load_datanames_dual_dir(
+            path_to_images=PATH_TO_INFERENCE_IMAGES,
+            amount=INFERENCE_DATA_AMOUNT,     # for random mode
+            start_idx=INFERENCE_START_IDX,  # for range mode
+            end_idx=INFERENCE_END_IDX,    # for range mode
+            image_name=INFERENCE_IMAGE_NAME, # for single mode
+            data_mode=INFERENCE_DATA_MODE,
+            should_print=SHOULD_PRINT
+            )
+    elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
+        inference_images = load_datanames_multi_scene_single_dir(
+            path_to_dataset=PATH_TO_INFERENCE_IMAGES,
+            amount=INFERENCE_DATA_AMOUNT,     # for random mode
+            start_idx=INFERENCE_START_IDX,  # for range mode
+            end_idx=INFERENCE_END_IDX,    # for range mode
+            image_name=INFERENCE_IMAGE_NAME, # for single mode
+            data_mode=INFERENCE_DATA_MODE,
+            should_print=SHOULD_PRINT
+            )
     
     # load data
-    inference_dataset = Custom_YOLACT_inference_Dataset(
-        images=inference_images, 
-        img_folder_path=PATH_TO_INFERENCE_IMAGES, 
-        mask_folder_path=PATH_TO_INFERENCE_MASKS, 
-        data_type=".png",
-        size=IMG_MAX_SIZE,
-        should_print=SHOULD_PRINT
-    )
+    if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
+        inference_dataset = Custom_YOLACT_inference_Dataset_Dual_Dir(
+            images=inference_images, 
+            img_folder_path=PATH_TO_INFERENCE_IMAGES, 
+            mask_folder_path=PATH_TO_INFERENCE_MASKS, 
+            data_type=".png",
+            size=IMG_MAX_SIZE,
+            should_print=SHOULD_PRINT
+        )
+    elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
+        inference_dataset = Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(
+            image_mask_pair=inference_images, 
+            data_type=".png",
+            size=IMG_MAX_SIZE,
+            should_print=SHOULD_PRINT
+        )
 
     inference_loader = DataLoader(inference_dataset, 
                                     batch_size=1,
