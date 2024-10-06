@@ -1350,13 +1350,14 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
     The mask has the same size and same name like the original image.
     """
     def __init__(self, images, img_folder_path, mask_folder_path, transform,
-                    data_type=".png", should_print=True):
+                    data_type=".png", should_print=True, log_path="./train_log_complete.txt"):
         self.images = images
         self.img_folder = img_folder_path
         self.mask_folder = mask_folder_path
         self.transform = transform
         self.data_type = data_type
         self.should_print = should_print
+        self.log_path = log_path
         if len(self.images) == 0:
             raise ValueError("There are no images to train!")
         self.verify_data()
@@ -1406,6 +1407,7 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
         updated_images = []
         if self.should_print:
             print(f"\n{'-'*32}\nVerifying Data...")
+            log(self.log_path, f"\n{'-'*32}\nVerifying Data...")
 
         images_found = 0
         images_not_found = []
@@ -1440,26 +1442,35 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
 
         if self.should_print:
             print(f"\n> > > Images < < <\nFound: {round((images_found/len(self.images))*100, 2)}% ({images_found}/{len(self.images)})")
+            log(self.log_path, f"\n> > > Images < < <\nFound: {round((images_found/len(self.images))*100, 2)}% ({images_found}/{len(self.images)})")
         if len(images_not_found) > 0 and self.should_print:
             print("\n Not Found:")
+            log(self.log_path, "\n Not Found:")
         for not_found in images_not_found:
             if self.should_print:
                 print(f"    -> {not_found}")
+                log(self.log_path, f"    -> {not_found}")
 
         if self.should_print:
             print(f"\n> > > Masks < < <\nFound: {round((masks_found/len(self.images))*100, 2)}% ({masks_found}/{len(self.images)})")
+            log(self.log_path, f"\n> > > Masks < < <\nFound: {round((masks_found/len(self.images))*100, 2)}% ({masks_found}/{len(self.images)})")
         if len(masks_not_found) > 0 and self.should_print:
             print("\n Not Found:")
+            log(self.log_path, "\n Not Found:")
         for not_found in masks_not_found:
             if self.should_print:
                 print(f"    -> {not_found}")
+                log(self.log_path, f"    -> {not_found}")
 
         if self.should_print:
             print(f"\nUpdating Images...")
+            log(self.log_path, f"\nUpdating Images...")
             print(f"From {len(self.images)} to {len(updated_images)} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images)/len(self.images)) )*100, 2)}%")
+            log(self.log_path, f"From {len(self.images)} to {len(updated_images)} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images)/len(self.images)) )*100, 2)}%")
         self.images = updated_images
         if self.should_print:
             print(f"{'-'*32}\n")
+            log(self.log_path, f"{'-'*32}\n")
 
 class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Dataset):
     """
@@ -1804,7 +1815,9 @@ def update_output(cur_epoch,
                     success,
                     errors,
                     batch_size,
-                    log_folder):
+                    log_path,
+                    log_detail_path,
+                    log_progress_path):
     now = datetime.now()
     output = f"Yolact Training - {now.hour:02}:{now.minute:02} {now.day:02}.{now.month:02}.{now.year:04}"
     
@@ -1833,9 +1846,9 @@ def update_output(cur_epoch,
     clear_output()
     print(print_output)
 
-    log(os.path.join(log_folder, "train_log_details.txt"), detail_output)
-    log(os.path.join(log_folder, "train_log_progress.txt"), percentage_output)
-    log(os.path.join(log_folder, "train_log_complete.txt"), print_output)
+    log(log_detail_path, detail_output)
+    log(log_progress_path, percentage_output)
+    log(log_path, print_output)
 
 
 def log(file_path, content, reset_logs=False):
@@ -1860,7 +1873,9 @@ def torch_train_loop(
         model_save_path,
         weights,
         backbone_init_weights,
-        log_folder,
+        log_path,
+        log_detail_path,
+        log_progress_path,
         learning_rate,
         momentum,
         decay,
@@ -1886,6 +1901,7 @@ def torch_train_loop(
 
     if should_print:
         print("Create the model and preparing for training...")
+        log(log_path, "Create the model and preparing for training...")
 
     # Create the model
     model = cpu_model = Yolact(configuration=cfg)
@@ -1959,6 +1975,7 @@ def torch_train_loop(
 
     if should_print:
         print("Training starts now...")
+        log(log_path, "Training starts now...")
     try:
         # TRAINING
         for cur_epoch in range(num_epochs):
@@ -2043,7 +2060,9 @@ def torch_train_loop(
                                         success=success,
                                         errors=errors,
                                         batch_size=batch_size,
-                                        log_folder=log_folder)
+                                        log_path=log_path,
+                                        log_detail_path=log_detail_path,
+                                        log_progress_path=log_progress_path)
 
                 # make loggings
                 precision = 5
@@ -2090,6 +2109,7 @@ def torch_train_loop(
             
     except KeyboardInterrupt:
         print("Stopping early. Saving network...")
+        log(log_path, "Stopping early. Saving network...")
         cpu_model.save_weights(os.path.join(model_save_path, f"{name}_{cur_epoch}_{cur_iteration}_interrupt.pth"))
         # Add interrupted model for tracking
         # if using_experiment_tracking:
@@ -2113,10 +2133,13 @@ def torch_train_loop(
                         success=success,
                         errors=errors,
                         batch_size=batch_size,
-                        log_folder=log_folder)
+                        log_path=log_path,
+                        log_detail_path=log_detail_path,
+                        log_progress_path=log_progress_path)
     
     # success from iterations (batches)
     print(f"Successrate: {round((success/max_iter)*100, 2)}%")
+    log(log_path, f"Successrate: {round((success/max_iter)*100, 2)}%")
 
     if len(errors) > 0:
         print("saving errors as pickle file!")
@@ -2126,6 +2149,7 @@ def torch_train_loop(
     # Saving
     cpu_model.save_weights(os.path.join(model_save_path, f"{name}_{cur_epoch}_{cur_iteration}.pth"))
     print(f"\nCongratulations!!!! Your Model trained succefull!\n\n Your model waits here for you: '{os.path.join(model_save_path, f'{name}_{cur_epoch}_{cur_iteration}.pth')}'")
+    log(log_path, f"\nCongratulations!!!! Your Model trained succefull!\n\n Your model waits here for you: '{os.path.join(model_save_path, f'{name}_{cur_epoch}_{cur_iteration}.pth')}'")
 
     return model
 
@@ -2178,6 +2202,14 @@ def train(
     from train import CustomDataParallel, NetLoss, set_lr
     
     # cnn_train_test()
+    
+    LOG_PATH = os.path.join(LOG_FOLDER, f"train_log_{NAME}.txt")
+    LOG_DETAIL_PATH = os.path.join(LOG_FOLDER, f"train_detail_log_{NAME}.txt")
+    LOG_PROGRESS_PATH = os.path.join(LOG_FOLDER, f"train_progress_log_{NAME}.txt")
+    
+    log(LOG_DETAIL_PATH, "", reset_logs=True)
+    log(LOG_PROGRESS_PATH, "", reset_logs=True)
+    log(LOG_PATH, "", reset_logs=True)
 
     # get current device
     device = get_device()
@@ -2220,7 +2252,8 @@ def train(
                             mask_folder_path=PATH_TO_TRAIN_MASKS, 
                             data_type=".png",
                             transform=train_transform,
-                            should_print=SHOULD_PRINT
+                            should_print=SHOULD_PRINT,
+                            log_path=LOG_PATH
                         )
     elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
         train_dataset = Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(
@@ -2372,9 +2405,9 @@ def train(
                                         fpn_relu_downsample_layers=False,
                                         fpn_relu_pred_layers=True)
 
-
     if SHOULD_PRINT:
         print(f"Instance Segmentation with YOLACT (train)\n")
+        log(LOG_PATH, f"Instance Segmentation with YOLACT (train)\n")
 
     # preparing experiment tracking
     if USING_EXPERIMENT_TRACKING:
@@ -2386,7 +2419,9 @@ def train(
             EXPERIMENT_ID = mlflow.create_experiment(EXPERIMENT_NAME)
             if SHOULD_PRINT:
                 print(f"Created Experiment ID: {EXPERIMENT_ID}")
+                log(LOG_PATH, f"Created Experiment ID: {EXPERIMENT_ID}")
                 print(f"IMPORTANT: You can set now 'CREATE_NEW_EXPERIMENT' to False and 'EXPERIMENT_ID' to {EXPERIMENT_ID}.\nRestart your environment.")
+                log(LOG_PATH, f"IMPORTANT: You can set now 'CREATE_NEW_EXPERIMENT' to False and 'EXPERIMENT_ID' to {EXPERIMENT_ID}.\nRestart your environment.")
 
         def is_mlflow_active():
             return mlflow.active_run() is not None
@@ -2403,6 +2438,7 @@ def train(
         EXPERIMENT_ID = existing_experiment.experiment_id
         if SHOULD_PRINT:
             print(f"Current Experiment ID: {EXPERIMENT_ID}")
+            log(LOG_PATH, f"Current Experiment ID: {EXPERIMENT_ID}")
 
         #mlflow.set_tracking_uri(None)
         mlflow.set_experiment(EXPERIMENT_NAME)
@@ -2412,10 +2448,6 @@ def train(
 
     if not os.path.exists(LOG_FOLDER):
             os.mkdir(LOG_FOLDER)
-
-    log(os.path.join(LOG_FOLDER, "train_log_details.txt"), "", reset_logs=True)
-    log(os.path.join(LOG_FOLDER, "train_log_progress.txt"), "", reset_logs=True)
-    log(os.path.join(LOG_FOLDER, "train_log_complete.txt"), "", reset_logs=True)
 
     # Training
     if USING_EXPERIMENT_TRACKING:
@@ -2501,7 +2533,9 @@ def train(
                     model_save_path=MODEL_SAVE_PATH,
                     weights=WEIGHTS_NAME,
                     backbone_init_weights=BACKBONE_INIT_WEIGHTS,
-                    log_folder=LOG_FOLDER,
+                    log_path=LOG_PATH,
+                    log_detail_path=LOG_DETAIL_PATH,
+                    log_progress_path=LOG_PROGRESS_PATH,
                     learning_rate=LEARNING_RATE,
                     momentum=MOMENTUM,
                     decay=DECAY,
@@ -2516,7 +2550,7 @@ def train(
                     learning_rate_adjustment=LEARNING_RATE_ADJUSTMENT,
                     weight_save_interval=WEIGHT_SAVE_INTERVAL,
                     keep_only_latest_weights=KEEP_ONLY_LATEST_WEIGHTS,
-                    should_print=SHOULD_PRINT
+                    should_print=SHOULD_PRINT,
                 )
         
     # if SHOULD_PRINT:
