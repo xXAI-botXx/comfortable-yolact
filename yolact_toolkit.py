@@ -652,8 +652,8 @@ def load_datanames_dual_dir(path_to_images,
         images += [all_images[cur_idx]]
 
     if should_print:
-        print(f"Inference Image Indices:\n{data_indices}")
-        print(f"Inference Data Amount: {len(images)}")
+        print(f"Image Indices:\n{data_indices}")
+        print(f"Data Amount: {len(images)}")
 
     # data_amount = len(images)
     return images
@@ -733,13 +733,13 @@ def load_datanames_multi_scene_single_dir(path_to_dataset,
             elif cur_file.startswith("grey_mask"):
                 mask_name = cur_file
 
-        image_path = os.path.join(path_to_dataset, cur_scene, cur_scene, raw_name)
-        mask_path = os.path.join(path_to_dataset, cur_scene, cur_scene, mask_name)
+        image_path = os.path.join(path_to_dataset, cur_scene, raw_name)
+        mask_path = os.path.join(path_to_dataset, cur_scene, mask_name)
         image_mask_pairs[cur_idx] = [image_path, mask_path]
 
     if should_print:
-        print(f"Inference Scene Indices:\n{data_indices}")
-        print(f"Inference Data Amount: {len(image_mask_pairs.keys())}")
+        print(f"Scene Indices:\n{data_indices}")
+        print(f"Data Amount: {len(image_mask_pairs.keys())}")
 
     return image_mask_pairs
 
@@ -1249,6 +1249,8 @@ class Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Da
 
     The Dataloader expect a folder for every scene/image. Containing a mask and a rgb raw input image.
     The input raw image have to start with 'raw' and the mask have to start with 'mask' or with 'grey'.
+    
+    NOT WORKING YET!!!
     """
     def __init__(self, image_mask_pair,
                     data_type=".png", size=550, should_print=True):
@@ -1371,12 +1373,16 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
             raise FileNotFoundError(f"File '{img_path}' not found!")
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        if image is None:
+            raise ValueError(f"RGB Image is None! -> {img_path}")
 
         # load mask
         mask_path = os.path.join(self.mask_folder,  self.images[idx])
         if not os.path.exists(mask_path):
             raise FileNotFoundError(f"File '{mask_path}' not found!")
         masks = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        if masks is None:
+            raise ValueError(f"Mask is None! -> {mask_path}")
 
         boxes_and_classes = get_bounding_boxes(masks)
 
@@ -1418,6 +1424,12 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
                 images_not_found += [image_path]
 
             mask_exists = os.path.exists(mask_path) and os.path.isfile(mask_path) and any([mask_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
+            # check if mask has an object
+            if mask_exists:
+                mask_img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+                if len(np.unique(mask_img)) <= 1:
+                    mask_exists = False
+            
             if mask_exists:
                 masks_found += 1
             else:
@@ -1455,21 +1467,23 @@ class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Datase
 
     The Dataloader expect a folder for every scene/image. Containing a mask and a rgb raw input image.
     The input raw image have to start with 'raw' and the mask have to start with 'mask' or with 'grey'.
+    
+    NOT WORKING YET!!!!
     """
-    def __init__(self, image_mask_pair, transform,
+    def __init__(self, image_mask_pair:dict, transform,
                     data_type=".png", should_print=True):
         self.image_mask_pair = image_mask_pair
         self.transform = transform
         self.data_type = data_type
         self.should_print = should_print
-        if len(self.images) == 0:
+        if len(self.image_mask_pair.keys()) == 0:
             raise ValueError("There are no images to train!")
         self.verify_data()
-        if len(self.images) == 0:
+        if len(self.image_mask_pair.keys()) == 0:
             raise ValueError("There are no images to train!")
 
     def __len__(self):
-        return len(self.images)
+        return len(self.image_mask_pair.keys())
 
     def __getitem__(self, idx):
 
@@ -1498,7 +1512,8 @@ class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Datase
         # return torch.from_numpy(image).permute(2, 0, 1), boxes_and_classes, masks, num_crowded_objects
 
     def verify_data(self):
-        updated_images = []
+        updated_images = dict()
+        counter_idx = 0
         if self.should_print:
             print(f"\n{'-'*32}\nVerifying Data...")
 
@@ -1508,7 +1523,7 @@ class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Datase
         masks_found = 0
         masks_not_found = []
 
-        for image_path, mask_path in self.image_mask_pair:
+        for idx, (image_path, mask_path) in self.image_mask_pair.items():
 
             image_exists = os.path.exists(image_path) and os.path.isfile(image_path) and any([image_path.endswith(ending) for ending in [".png", ".jpg", ".jpeg"]])
             if image_exists:
@@ -1523,7 +1538,8 @@ class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Datase
                 masks_not_found += [mask_path]
 
             if image_exists and mask_exists:
-                updated_images += [image_path, mask_path]
+                updated_images[counter_idx] = [image_path, mask_path]
+                conter_idx += 1
 
         if self.should_print:
             print(f"\n> > > Images < < <\nFound: {round((images_found/len(self.image_mask_pair.keys()))*100, 2)}% ({images_found}/{len(self.image_mask_pair.keys())})")
@@ -1543,7 +1559,7 @@ class Custom_YOLACT_train_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Datase
 
         if self.should_print:
             print(f"\nUpdating Images...")
-            print(f"From {len(self.image_mask_pair.keys())} to {len(updated_images.keys())} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images.keys())/len(self.images.keys())) )*100, 2)}%")
+            print(f"From {len(self.image_mask_pair.keys())} to {len(updated_images.keys())} Images\n    -> Image amount reduced by {round(( 1-(len(updated_images.keys())/len(self.image_mask_pair.keys())) )*100, 2)}%")
         self.image_mask_pair = updated_images
         if self.should_print:
             print(f"{'-'*32}\n")
@@ -1655,8 +1671,12 @@ class Mask_To_Binary:
             binary_masks.append(binary_mask)
         
         # Stack binary masks along a new dimension to create a tensor
-        binary_masks_tensor = torch.stack([torch.from_numpy(mask) for mask in binary_masks])
-        
+        if len(binary_masks) > 0:
+            binary_masks_tensor = torch.stack([torch.from_numpy(mask) for mask in binary_masks])
+        else:
+            raise ValueError("Empty Mask detected. Can't handle empty masks.")
+            # binary_masks_tensor = torch.from_numpy(masks).resize_(0)    # torch.tensor([])
+            
         return img, binary_masks_tensor, boxes
 
 def do_nothing(img=None, masks=None, boxes=None):
@@ -2148,6 +2168,7 @@ def train(
         LOG_FOLDER="./logs/",
         USED_DATA_FORMAT=DATA_FORMAT.DUAL_DIR):
     
+    
     # import import yolact train functions
     sys.argv = ['train.py', 
             f'--batch_size={BATCH_SIZE}', 
@@ -2174,6 +2195,7 @@ def train(
             data_mode=TRAIN_DATA_MODE,
             should_print=SHOULD_PRINT
         )
+        DATA_SIZE = len(train_images)
     elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
         train_images = load_datanames_multi_scene_single_dir(
             path_to_dataset=PATH_TO_TRAIN_IMAGES,
@@ -2185,7 +2207,7 @@ def train(
             should_print=SHOULD_PRINT
         )
 
-    DATA_SIZE = len(train_images)
+        DATA_SIZE = len(train_images.keys())
     ITERATIONS_PER_EPOCHE = (DATA_SIZE // BATCH_SIZE)
     MAX_ITER = int(EPOCHS*ITERATIONS_PER_EPOCHE)
     NUM_WORKERS = multiprocessing.cpu_count() // 2
@@ -2217,6 +2239,7 @@ def train(
                         pin_memory=True,
                         generator=torch.Generator(device='cuda')
                     )
+
 
     # create configuration file
     configuration = get_configuration(name=NAME,
