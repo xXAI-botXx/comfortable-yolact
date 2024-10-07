@@ -74,6 +74,14 @@ import mlflow
 class DATA_FORMAT(Enum):
     MULTI_SCENES_SINGLE_DIR = 0
     DUAL_DIR = 1
+    
+
+class DATA_LOADING_MODE(Enum):
+    ALL = "all"
+    RANGE = "range"
+    RANDOM = "random"
+    SINGLE = "single"
+    
 
 
 
@@ -1962,7 +1970,7 @@ def torch_train_loop(
     learning_rate_step_index = 0
     last_time = time.time()
 
-    epoch_size = len(dataset_train) // batch_size
+    epoch_size = len(dataset_train.dataset) // batch_size
     num_epochs = math.ceil(max_iter / epoch_size)
     
     # add moving avg windows for logs
@@ -2501,7 +2509,9 @@ def train(
                         model_save_path=MODEL_SAVE_PATH,
                         weights=WEIGHTS_NAME,
                         backbone_init_weights=BACKBONE_INIT_WEIGHTS,
-                        log_folder=LOG_FOLDER,
+                        log_path=LOG_PATH,
+                        log_detail_path=LOG_DETAIL_PATH,
+                        log_progress_path=LOG_PROGRESS_PATH,
                         learning_rate=LEARNING_RATE,
                         momentum=MOMENTUM,
                         decay=DECAY,
