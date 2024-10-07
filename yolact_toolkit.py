@@ -2618,7 +2618,8 @@ def inference(MODEL_SAVE_PATH,
     Makes an inference from a model.
     """
     # get current device
-    device = get_device()
+    # device = get_device()
+    device = torch.device("cpu")
 
     # load image names
     if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
