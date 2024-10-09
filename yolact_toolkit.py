@@ -17,6 +17,7 @@ PyTorch = 2.3.0
 ###############
 import sys
 sys.path.append("./")
+import gc
 
 # Common Utils
 import os
@@ -1393,9 +1394,11 @@ class Custom_YOLACT_train_Dataset_Dual_Dir(torch.utils.data.Dataset):
         if masks is None:
             raise ValueError(f"Mask is None! -> {mask_path}")
 
-        boxes_and_classes = get_bounding_boxes(masks)
-
-        image, masks, boxes_and_classes = self.transform(image, masks, boxes_and_classes)
+        image, masks, boxes_and_classes = self.transform(image, masks, None)
+    
+        # Empty Unused Memory
+        gc.collect()
+        torch.cuda.empty_cache()
         # image = torch.from_numpy(image)
         # image = torch.tensor(image, dtype=torch.float32)
 
@@ -1632,6 +1635,12 @@ class Resizer:
     def __call__(self, img, masks=None, boxes=None):
         # Resize both the image and the mask to the specified size
         img = cv2.resize(img, self.size)
+        # Torch uses Channel, Width, height and Opencv uses Width, height, Channels
+        if isinstance(img, torch.Tensor):
+                img = img.permute(1, 2, 0).cpu().numpy()
+        
+        if isinstance(masks, torch.Tensor):
+            masks = masks.permute(1, 2, 0).cpu().numpy()
         masks = cv2.resize(masks, self.size, interpolation=cv2.INTER_NEAREST)  # Nearest neighbor interpolation for masks
         return img, masks, boxes
     
@@ -1698,6 +1707,11 @@ class Mask_To_Binary:
             
         return img, binary_masks_tensor, boxes
 
+class Box_Extractor:
+    def __call__(self, img, masks=None, boxes=None):
+        boxes_and_classes = get_bounding_boxes(masks)
+        return img, masks, boxes_and_classes
+
 def do_nothing(img=None, masks=None, boxes=None):
     return img, masks, boxes
 
@@ -1725,6 +1739,8 @@ class Train_YOLACT_Augmentation:
                         # Bounding_Box_To_Percent_Coords(),
 
                         Mask_To_Binary(),
+                        
+                        Box_Extractor(),
 
                         # Change to PyTorch Tensor
                         # To_Tensor()
@@ -2278,7 +2294,8 @@ def train(
                         num_workers=NUM_WORKERS,
                         collate_fn=prediction_collate,
                         pin_memory=True,
-                        generator=torch.Generator(device='cuda')
+                        generator=torch.Generator(device='cuda'),
+                        drop_last=True
                     )
 
 
