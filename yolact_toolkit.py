@@ -754,57 +754,63 @@ def load_datanames_multi_scene_single_dir(path_to_dataset,
 
 
 
-def get_bounding_boxes(mask):
-    """
-    Generate percentage bounding boxes from a mask image.
+# def get_bounding_boxes(mask, absolute_values=True):
+#     """
+#     Generate percentage bounding boxes from a mask image or with absolute values.
 
-    This function takes a mask image where each unique pixel value corresponds to a different class. 
-    It computes the bounding boxes for each class, represented as percentages of the image dimensions. 
-    The output is a numpy array containing the bounding box coordinates and the class ID for each box.
+#     This function takes a mask image where each unique pixel value corresponds to a different class. 
+#     It computes the bounding boxes for each class, represented as percentages of the image dimensions. 
+#     The output is a numpy array containing the bounding box coordinates and the class ID for each box.
 
-    Parameters:
-    mask (numpy.ndarray): A 2D numpy array where each unique value represents a different class. 
-                          The mask should have integer values, with 0 typically representing the background.
+#     Parameters:
+#     mask (numpy.ndarray): A 2D numpy array where each unique value represents a different class. 
+#                           The mask should have integer values, with 0 typically representing the background.
 
-    Returns:
-    numpy.ndarray: A 2D numpy array of shape (N, 5), where N is the number of bounding boxes. 
-                   Each row corresponds to a bounding box in the format [xmin, ymin, xmax, ymax, class_id], 
-                   where the coordinates are normalized to the range [0, 1].
+#     Returns:
+#     numpy.ndarray: A 2D numpy array of shape (N, 5), where N is the number of bounding boxes. 
+#                    Each row corresponds to a bounding box in the format [xmin, ymin, xmax, ymax, class_id], 
+#                    where the coordinates are normalized to the range [0, 1].
 
-    Example:
-    --------
-    >>> mask = np.array([[0, 0, 1, 1],
-                         [0, 2, 2, 1],
-                         [3, 3, 3, 3]])
-    >>> get_bounding_boxes(mask)
-    array([[1.0       , 0.        , 1.        , 0.5       , 1.        ],
-           [0.25      , 0.25      , 0.75      , 0.5       , 1.        ],
-           [0.        , 0.66666667, 1.        , 1.        , 1.        ]])
-    """
-    height, width = mask.shape
-    unique_classes = np.unique(mask)
+#     Example: (when absolute_values == False)
+#     --------
+#     >>> mask = np.array([[0, 0, 1, 1],
+#                          [0, 2, 2, 1],
+#                          [3, 3, 3, 3]])
+#     >>> get_bounding_boxes(mask)
+#     array([[1.0       , 0.        , 1.        , 0.5       , 1.        ],
+#            [0.25      , 0.25      , 0.75      , 0.5       , 1.        ],
+#            [0.        , 0.66666667, 1.        , 1.        , 1.        ]])
+#     """
+#     height, width = mask.shape
+#     unique_classes = np.unique(mask)
     
-    # Initialize an empty array with the shape (0, 5) to store the boxes and classes
-    boxes_and_classes = np.empty((0, 5))
+#     # Initialize an empty array with the shape (0, 5) to store the boxes and classes
+#     boxes_and_classes = np.empty((0, 5))
 
-    for class_id in unique_classes:
-        # Skip background
-        if class_id == 0:
-            continue  
+#     for class_id in unique_classes:
+#         # Skip background
+#         if class_id == 0:
+#             continue  
 
-        pos = np.where(mask == class_id)
-        xmin = np.min(pos[1]) / width
-        xmax = np.max(pos[1]) / width
-        ymin = np.min(pos[0]) / height
-        ymax = np.max(pos[0]) / height
+#         pos = np.where(mask == class_id)
+#         if absolute_values:
+#             xmin = np.min(pos[1])
+#             xmax = np.max(pos[1])
+#             ymin = np.min(pos[0])
+#             ymax = np.max(pos[0])
+#         else:
+#             xmin = np.min(pos[1]) / width
+#             xmax = np.max(pos[1]) / width
+#             ymin = np.min(pos[0]) / height
+#             ymax = np.max(pos[0]) / height
         
-        # Create a numpy array for the current bounding box and class
-        cur_box_and_class = np.array([[xmin, ymin, xmax, ymax, 1]])
+#         # Create a numpy array for the current bounding box and class
+#         cur_box_and_class = np.array([[xmin, ymin, xmax, ymax, 1]])
 
-        # Stack the new array onto the existing one
-        boxes_and_classes = np.vstack((boxes_and_classes, cur_box_and_class))
+#         # Stack the new array onto the existing one
+#         boxes_and_classes = np.vstack((boxes_and_classes, cur_box_and_class))
 
-    return boxes_and_classes
+#     return boxes_and_classes
 
 
 
@@ -1683,34 +1689,89 @@ class Bounding_Box_To_Percent_Coords(object):
 
         return img, masks, boxes
     
-class Mask_To_Binary:
-    def __call__(self, img, masks=None, boxes=None):
+# class Mask_To_Binary:
+#     def __call__(self, img, masks=None, boxes=None):
+#         # Find unique non-zero values in the mask (excluding the background)
+#         unique_values = np.unique(masks)
+#         unique_values = unique_values[unique_values != 0]  # Exclude background (0)
+        
+#         # Initialize an empty list to store binary masks
+#         binary_masks = []
+        
+#         # Create a binary mask for each unique object
+#         for value in unique_values:
+#             # Create a binary mask where object pixels are set to 1 and background pixels are set to 0
+#             binary_mask = (masks == value).astype(np.uint8)
+#             binary_masks.append(binary_mask)
+        
+#         # Stack binary masks along a new dimension to create a tensor
+#         if len(binary_masks) > 0:
+#             binary_masks_tensor = torch.stack([torch.from_numpy(mask) for mask in binary_masks])
+#         else:
+#             raise ValueError("Empty Mask detected. Can't handle empty masks.")
+#             # binary_masks_tensor = torch.from_numpy(masks).resize_(0)    # torch.tensor([])
+            
+#         return img, binary_masks_tensor, boxes
+
+# class Box_Extractor:
+#     def __init__(self, use_absolute_values):
+#         self.use_absolute_values = use_absolute_values
+    
+#     def __call__(self, img, masks=None, boxes=None):
+#         boxes_and_classes = get_bounding_boxes(masks, absolute_values=self.use_absolute_values)
+#         return img, masks, boxes_and_classes
+
+class Mask_And_Box_Extractor:
+    def __init__(self, use_absolute_values=True):
+        self.use_absolute_values = use_absolute_values
+
+    def __call__(self, img, masks=None, boxes_and_classes=None):
+        if masks is None:
+            raise ValueError("Masks cannot be None")
+
         # Find unique non-zero values in the mask (excluding the background)
         unique_values = np.unique(masks)
         unique_values = unique_values[unique_values != 0]  # Exclude background (0)
-        
-        # Initialize an empty list to store binary masks
+
+        # Initialize lists to store binary masks and bounding boxes
         binary_masks = []
+        boxes_and_classes = np.empty((0, 5))
+
+        height, width = masks.shape
         
-        # Create a binary mask for each unique object
+        # Create a binary mask and bounding box for each unique object
         for value in unique_values:
-            # Create a binary mask where object pixels are set to 1 and background pixels are set to 0
+            # Create a binary mask where object pixels are set to 1 and background pixels to 0
             binary_mask = (masks == value).astype(np.uint8)
             binary_masks.append(binary_mask)
-        
+
+            # Get the bounding box for the current object
+            pos = np.where(masks == value)
+            if self.use_absolute_values:
+                xmin = np.min(pos[1])
+                xmax = np.max(pos[1])
+                ymin = np.min(pos[0])
+                ymax = np.max(pos[0])
+            else:
+                xmin = np.min(pos[1]) / width
+                xmax = np.max(pos[1]) / width
+                ymin = np.min(pos[0]) / height
+                ymax = np.max(pos[0]) / height
+
+            # Create a numpy array for the current bounding box and class
+            cur_box_and_class = np.array([[xmin, ymin, xmax, ymax, 1]])
+
+            # Stack the new array onto the existing one
+            boxes_and_classes = np.vstack((boxes_and_classes, cur_box_and_class))
+
         # Stack binary masks along a new dimension to create a tensor
         if len(binary_masks) > 0:
             binary_masks_tensor = torch.stack([torch.from_numpy(mask) for mask in binary_masks])
         else:
-            raise ValueError("Empty Mask detected. Can't handle empty masks.")
-            # binary_masks_tensor = torch.from_numpy(masks).resize_(0)    # torch.tensor([])
-            
-        return img, binary_masks_tensor, boxes
+            raise ValueError("No valid objects found in the mask.")
 
-class Box_Extractor:
-    def __call__(self, img, masks=None, boxes=None):
-        boxes_and_classes = get_bounding_boxes(masks)
-        return img, masks, boxes_and_classes
+        return img, binary_masks_tensor, boxes_and_classes
+
 
 def do_nothing(img=None, masks=None, boxes=None):
     return img, masks, boxes
@@ -1738,9 +1799,11 @@ class Train_YOLACT_Augmentation:
 
                         # Bounding_Box_To_Percent_Coords(),
 
-                        Mask_To_Binary(),
+                        # Box_Extractor(use_absolute_values=False),
+
+                        # Mask_To_Binary(),
                         
-                        Box_Extractor(),
+                        Mask_And_Box_Extractor(use_absolute_values=False),
 
                         # Change to PyTorch Tensor
                         # To_Tensor()
