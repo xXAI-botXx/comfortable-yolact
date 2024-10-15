@@ -754,63 +754,63 @@ def load_datanames_multi_scene_single_dir(path_to_dataset,
 
 
 
-# def get_bounding_boxes(mask, absolute_values=True):
-#     """
-#     Generate percentage bounding boxes from a mask image or with absolute values.
+def get_bounding_boxes(mask, absolute_values=True):
+    """
+    Generate percentage bounding boxes from a mask image or with absolute values.
 
-#     This function takes a mask image where each unique pixel value corresponds to a different class. 
-#     It computes the bounding boxes for each class, represented as percentages of the image dimensions. 
-#     The output is a numpy array containing the bounding box coordinates and the class ID for each box.
+    This function takes a mask image where each unique pixel value corresponds to a different class. 
+    It computes the bounding boxes for each class, represented as percentages of the image dimensions. 
+    The output is a numpy array containing the bounding box coordinates and the class ID for each box.
 
-#     Parameters:
-#     mask (numpy.ndarray): A 2D numpy array where each unique value represents a different class. 
-#                           The mask should have integer values, with 0 typically representing the background.
+    Parameters:
+    mask (numpy.ndarray): A 2D numpy array where each unique value represents a different class. 
+                          The mask should have integer values, with 0 typically representing the background.
 
-#     Returns:
-#     numpy.ndarray: A 2D numpy array of shape (N, 5), where N is the number of bounding boxes. 
-#                    Each row corresponds to a bounding box in the format [xmin, ymin, xmax, ymax, class_id], 
-#                    where the coordinates are normalized to the range [0, 1].
+    Returns:
+    numpy.ndarray: A 2D numpy array of shape (N, 5), where N is the number of bounding boxes. 
+                   Each row corresponds to a bounding box in the format [xmin, ymin, xmax, ymax, class_id], 
+                   where the coordinates are normalized to the range [0, 1].
 
-#     Example: (when absolute_values == False)
-#     --------
-#     >>> mask = np.array([[0, 0, 1, 1],
-#                          [0, 2, 2, 1],
-#                          [3, 3, 3, 3]])
-#     >>> get_bounding_boxes(mask)
-#     array([[1.0       , 0.        , 1.        , 0.5       , 1.        ],
-#            [0.25      , 0.25      , 0.75      , 0.5       , 1.        ],
-#            [0.        , 0.66666667, 1.        , 1.        , 1.        ]])
-#     """
-#     height, width = mask.shape
-#     unique_classes = np.unique(mask)
+    Example: (when absolute_values == False)
+    --------
+    >>> mask = np.array([[0, 0, 1, 1],
+                         [0, 2, 2, 1],
+                         [3, 3, 3, 3]])
+    >>> get_bounding_boxes(mask)
+    array([[1.0       , 0.        , 1.        , 0.5       , 1.        ],
+           [0.25      , 0.25      , 0.75      , 0.5       , 1.        ],
+           [0.        , 0.66666667, 1.        , 1.        , 1.        ]])
+    """
+    height, width = mask.shape
+    unique_classes = np.unique(mask)
     
-#     # Initialize an empty array with the shape (0, 5) to store the boxes and classes
-#     boxes_and_classes = np.empty((0, 5))
+    # Initialize an empty array with the shape (0, 5) to store the boxes and classes
+    boxes_and_classes = np.empty((0, 5))
 
-#     for class_id in unique_classes:
-#         # Skip background
-#         if class_id == 0:
-#             continue  
+    for class_id in unique_classes:
+        # Skip background
+        if class_id == 0:
+            continue  
 
-#         pos = np.where(mask == class_id)
-#         if absolute_values:
-#             xmin = np.min(pos[1])
-#             xmax = np.max(pos[1])
-#             ymin = np.min(pos[0])
-#             ymax = np.max(pos[0])
-#         else:
-#             xmin = np.min(pos[1]) / width
-#             xmax = np.max(pos[1]) / width
-#             ymin = np.min(pos[0]) / height
-#             ymax = np.max(pos[0]) / height
+        pos = np.where(mask == class_id)
+        if absolute_values:
+            xmin = np.min(pos[1])
+            xmax = np.max(pos[1])
+            ymin = np.min(pos[0])
+            ymax = np.max(pos[0])
+        else:
+            xmin = np.min(pos[1]) / width
+            xmax = np.max(pos[1]) / width
+            ymin = np.min(pos[0]) / height
+            ymax = np.max(pos[0]) / height
         
-#         # Create a numpy array for the current bounding box and class
-#         cur_box_and_class = np.array([[xmin, ymin, xmax, ymax, 1]])
+        # Create a numpy array for the current bounding box and class
+        cur_box_and_class = np.array([[xmin, ymin, xmax, ymax, 1]])
 
-#         # Stack the new array onto the existing one
-#         boxes_and_classes = np.vstack((boxes_and_classes, cur_box_and_class))
+        # Stack the new array onto the existing one
+        boxes_and_classes = np.vstack((boxes_and_classes, cur_box_and_class))
 
-#     return boxes_and_classes
+    return boxes_and_classes
 
 
 
@@ -1154,12 +1154,13 @@ class Custom_YOLACT_inference_Dataset_Dual_Dir(torch.utils.data.Dataset):
         to include only valid entries.
     """
     def __init__(self, images, img_folder_path, mask_folder_path,
-                    data_type=".png", size=550, should_print=True):
+                    data_type=".png", img_width=550, img_height=550,
+                    should_print=True):
         self.images = images
         self.img_folder = img_folder_path
         self.mask_folder = mask_folder_path
         self.data_type = data_type
-        self.size = size
+        self.size = [img_width, img_height]
         self.should_print = should_print
         if len(self.images) == 0:
             raise ValueError("There are no images to train!")
@@ -1177,7 +1178,7 @@ class Custom_YOLACT_inference_Dataset_Dual_Dir(torch.utils.data.Dataset):
             raise FileNotFoundError(f"File '{img_path}' not found!")
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.resize(image, [self.size, self.size])
+        image = cv2.resize(image, self.size)
         # prepared_image = FastBaseTransform()(image.unsqueeze(0))
         prepared_image = torch.from_numpy(image.astype(np.float32)).permute(2, 0, 1).float()     # .unsqueeze(0)
 
@@ -1268,9 +1269,10 @@ class Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Da
     NOT WORKING YET!!!
     """
     def __init__(self, image_mask_pair,
-                    data_type=".png", size=550, should_print=True):
+                    data_type=".png", img_width=550, img_height=550,
+                    should_print=True):
         self.image_mask_pair = image_mask_pair
-        self.size = size
+        self.size = [img_width, img_height]
         self.data_type = data_type
         self.should_print = should_print
         if len(self.image_mask_pair.keys()) == 0:
@@ -1291,7 +1293,7 @@ class Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(torch.utils.data.Da
             raise FileNotFoundError(f"File '{img_path}' not found!")
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.resize(image, [self.size, self.size])
+        image = cv2.resize(image, self.size)
         prepared_image = torch.from_numpy(image.astype(np.float32)).permute(2, 0, 1).float() 
 
         # load mask
@@ -1780,7 +1782,7 @@ def enable_if(condition, obj):
     return obj if condition else do_nothing
 
 class Train_YOLACT_Augmentation:
-    def __init__(self, IMG_MAX_SIZE):
+    def __init__(self, IMG_WIDTH, IMG_HEIGHT):
         self.aug_transformations = YOLACT_Compose([
                         # image as float
                         Float_Converter(),
@@ -1795,7 +1797,7 @@ class Train_YOLACT_Augmentation:
                         # Image_Normalizer(),
 
                         # Resizing
-                        Resizer((IMG_MAX_SIZE, IMG_MAX_SIZE)),
+                        Resizer((IMG_WIDTH, IMG_HEIGHT)),
 
                         # Bounding_Box_To_Percent_Coords(),
 
@@ -1968,7 +1970,8 @@ def torch_train_loop(
         decay,
         freeze_batch_normalization,
         batch_size,
-        img_max_size,
+        img_width,
+        img_height,
         max_iter,
         data_size,
         warm_up_iter,
@@ -2029,7 +2032,7 @@ def torch_train_loop(
     if freeze_batch_normalization:
         cpu_model.freeze_bn()
         
-    cpu_model(torch.zeros(1, 3, img_max_size, img_max_size).cuda())
+    cpu_model(torch.zeros(1, 3, img_width, img_height).cuda())
     
     if freeze_batch_normalization:
         cpu_model.freeze_bn(True)
@@ -2250,7 +2253,8 @@ def train(
         TRAIN_DATA_AMOUNT,
         TRAIN_START_IDX,
         TRAIN_END_IDX,
-        IMG_MAX_SIZE,
+        IMG_WIDTH,
+        IMG_HEIGHT,
         SHOULD_PRINT=True,
         USING_EXPERIMENT_TRACKING=False,
         CREATE_NEW_EXPERIMENT=False,
@@ -2301,7 +2305,7 @@ def train(
     # get current device
     device = get_device()
 
-    train_transform = Train_YOLACT_Augmentation(IMG_MAX_SIZE=IMG_MAX_SIZE)
+    train_transform = Train_YOLACT_Augmentation(IMG_WIDTH=IMG_WIDTH, IMG_HEIGHT=IMG_HEIGHT)
 
     # load image names
     if USED_DATA_FORMAT == DATA_FORMAT.DUAL_DIR:
@@ -2364,7 +2368,7 @@ def train(
 
     # create configuration file
     configuration = get_configuration(name=NAME,
-                                        max_size=IMG_MAX_SIZE,
+                                        max_size=IMG_WIDTH,
                                         decay=DECAY,
                                         gamma=GAMMA,
                                         momentum=MOMENTUM,
@@ -2567,7 +2571,8 @@ def train(
 
             mlflow.log_param("images_path", PATH_TO_TRAIN_IMAGES)
             mlflow.log_param("masks_path", PATH_TO_TRAIN_MASKS)
-            mlflow.log_param("img_max_size", IMG_MAX_SIZE)
+            mlflow.log_param("img_width", IMG_WIDTH)
+            mlflow.log_param("img_height", IMG_HEIGHT)
 
             mlflow.log_param("train_data_shuffle", TRAIN_DATA_SHUFFLE)
             mlflow.log_param("train_data_mode", TRAIN_DATA_MODE)
@@ -2597,7 +2602,8 @@ def train(
                         decay=DECAY,
                         freeze_batch_normalization=FREEZE_BATCH_NORMALIZATION,
                         batch_size=BATCH_SIZE,
-                        img_max_size=IMG_MAX_SIZE,
+                        img_width=IMG_WIDTH,
+                        img_height=IMG_HEIGHT,
                         max_iter=MAX_ITER,
                         data_size=DATA_SIZE,
                         warm_up_iter=WARM_UP_ITER,
@@ -2631,7 +2637,8 @@ def train(
                     decay=DECAY,
                     freeze_batch_normalization=FREEZE_BATCH_NORMALIZATION,
                     batch_size=BATCH_SIZE,
-                    img_max_size=IMG_MAX_SIZE,
+                    img_width=IMG_WIDTH,
+                    img_height=IMG_HEIGHT,
                     max_iter=MAX_ITER,
                     data_size=DATA_SIZE,
                     warm_up_iter=WARM_UP_ITER,
@@ -2695,7 +2702,8 @@ def inference(MODEL_SAVE_PATH,
               INFERENCE_START_IDX,
               INFERENCE_END_IDX,
               INFERENCE_IMAGE_NAME,
-              IMG_MAX_SIZE,
+              IMG_WIDTH,
+              IMG_HEIGHT,
               OUTPUT_DIR,
               OUTPUT_TYPE="png",
               INTERACTIVE=False,
@@ -2740,14 +2748,16 @@ def inference(MODEL_SAVE_PATH,
             img_folder_path=PATH_TO_INFERENCE_IMAGES, 
             mask_folder_path=PATH_TO_INFERENCE_MASKS, 
             data_type=".png",
-            size=IMG_MAX_SIZE,
+            img_width=IMG_WIDTH,
+            img_height=IMG_HEIGHT,
             should_print=SHOULD_PRINT
         )
     elif USED_DATA_FORMAT == DATA_FORMAT.MULTI_SCENES_SINGLE_DIR:
         inference_dataset = Custom_YOLACT_inference_Dataset_Multi_Scene_Single_Dir(
             image_mask_pair=inference_images, 
             data_type=".png",
-            size=IMG_MAX_SIZE,
+            img_width=IMG_WIDTH,
+            img_height=IMG_HEIGHT,
             should_print=SHOULD_PRINT
         )
 
@@ -2758,7 +2768,7 @@ def inference(MODEL_SAVE_PATH,
     
     # create configuration file
     configuration = get_configuration(name="inference",
-                                        max_size=IMG_MAX_SIZE,
+                                        max_size=IMG_WIDTH,
                                         decay=5e-4,
                                         gamma=0.1,
                                         lr_steps=(280000, 600000, 700000, 750000),
@@ -2986,7 +2996,7 @@ def inference(MODEL_SAVE_PATH,
             # eval and plot ground truth comparisson
             if mask is not None:
                 mask = mask.squeeze(0).numpy()
-                mask = cv2.resize(mask, [IMG_MAX_SIZE, IMG_MAX_SIZE])
+                mask = cv2.resize(mask, [IMG_WIDTH, IMG_HEIGHT])
                 eval_pred(extracted_mask, mask)
 
                 if SHOULD_VISUALIZE:
@@ -3116,7 +3126,8 @@ if __name__ == "__main__":
     parser.add_argument("--start_idx", "-isi", help="Start index for data", default=0, required=False, type=int)
     parser.add_argument("--end_idx", "-iei", help="End index for data", default=None, required=False, type=int)
     parser.add_argument("--image_name", "-iin", help="Name of the used image", default=None, required=False, type=str)
-    parser.add_argument("--img_max_size", "-ims", help="Maximum image size", default=1024, required=False, type=int)
+    parser.add_argument("--img_width", "-imsw", help="Width of the Image", default=1024, required=False, type=int)
+    parser.add_argument("--img_height", "-imsw", help="Height of the Image", default=1024, required=False, type=int)
     parser.add_argument("--output_dir", "-od", help="Directory to save output", default="./output", required=False, type=str)
     parser.add_argument("--output_type", "-ot", help="Type of output files", default="png", required=False, type=str)
     parser.add_argument("--interactive", "-int", help="Run in interactive mode", default=False, type=bool) #action='store_true')
@@ -3164,7 +3175,8 @@ if __name__ == "__main__":
     start_idx = args.start_idx
     end_idx = args.end_idx
     image_name = args.image_name
-    img_max_size = args.img_max_size
+    img_width = args.img_width
+    img_height = args.img_height
     output_dir = args.output_dir
     output_type = args.output_type
     interactive = args.interactive
@@ -3215,7 +3227,8 @@ if __name__ == "__main__":
             INFERENCE_START_IDX=start_idx,
             INFERENCE_END_IDX=end_idx,
             INFERENCE_IMAGE_NAME=image_name,
-            IMG_MAX_SIZE=img_max_size,
+            IMG_WIDTH=img_width,
+            IMG_HEIGHT=img_height,
             OUTPUT_DIR=output_dir,
             OUTPUT_TYPE=output_type,
             INTERACTIVE=interactive,
@@ -3234,7 +3247,8 @@ if __name__ == "__main__":
             TRAIN_DATA_AMOUNT=data_amount,
             TRAIN_START_IDX=start_idx,
             TRAIN_END_IDX=end_idx,
-            IMG_MAX_SIZE=img_max_size,
+            IMG_WIDTH=img_width,
+            IMG_HEIGHT=img_height,
             SHOULD_PRINT=should_print,
             USING_EXPERIMENT_TRACKING=using_experiment_tracking,
             CREATE_NEW_EXPERIMENT=create_new_experiment,
