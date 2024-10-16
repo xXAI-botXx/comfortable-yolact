@@ -2032,7 +2032,7 @@ def torch_train_loop(
     if freeze_batch_normalization:
         cpu_model.freeze_bn()
         
-    cpu_model(torch.zeros(1, 3, img_width, img_height).cuda())
+    cpu_model(torch.zeros(1, 3, img_height, img_width).cuda())
     
     if freeze_batch_normalization:
         cpu_model.freeze_bn(True)

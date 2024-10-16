@@ -15,6 +15,8 @@ Use YOLACT with ease! Train and use it in your code, using this repo.<br>
 This Fork adds configuration as parameter for better usage of YOLACT in python code. The "normal" way of YOLACT usage should also work fine.<br>
 Also adds a toolkit for handle YOLACT.
 
+> **IMPORTANT**: Currently there seems to exist a bug, which leads to wrong results. The reason is not known yet. I don't recommend using this implementation during this message is here!
+
 
 ### Features:
 
