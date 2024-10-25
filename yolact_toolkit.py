@@ -947,18 +947,18 @@ def extract_and_visualize_mask(masks, image=None, ax=None, visualize=True, color
         if image is not None:
             color_image = color_image.astype(int) 
 
-            w, h, c = color_image.shape
+            h, w, c = color_image.shape
 
             if soft_join == False:
-                for cur_row_idx in range(w):
-                    for cur_col_idx in range(h):
+                for cur_row_idx in range(h):
+                    for cur_col_idx in range(w):
                         if color_image[cur_row_idx, cur_col_idx].sum() != 0:
                             image[cur_row_idx, cur_col_idx] = color_image[cur_row_idx, cur_col_idx]
                 color_image = image
             else:
                 # remove black baclground
-                for cur_row_idx in range(w):
-                    for cur_col_idx in range(h):
+                for cur_row_idx in range(h):
+                    for cur_col_idx in range(w):
                         if color_image[cur_row_idx, cur_col_idx].sum() == 0:
                             color_image[cur_row_idx, cur_col_idx] = image[cur_row_idx, cur_col_idx]
 
@@ -2283,6 +2283,7 @@ def train(
         LOG_FOLDER="./logs/",
         USED_DATA_FORMAT=DATA_FORMAT.DUAL_DIR):
     
+    os.makedirs(LOG_FOLDER, exist_ok=True)
     
     # import import yolact train functions
     sys.argv = ['train.py', 
@@ -2689,7 +2690,8 @@ def single_inference(model, image, configuration):
     
     
     # change to widht, height, masks
-    masks = masks.permute(1, 2, 0).numpy().astype(int)
+    masks = masks.permute(2, 1, 0).numpy()    # .astype(int)
+    masks = (masks > 0.5).astype(np.uint8)
 
     return classes, scores, boxes, masks
 
