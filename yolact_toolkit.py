@@ -1730,10 +1730,12 @@ class Mask_And_Box_Extractor:
     def __call__(self, img, masks=None, boxes_and_classes=None):
         if masks is None:
             raise ValueError("Masks cannot be None")
+        
+        background_value = 1    # 0
 
         # Find unique non-zero values in the mask (excluding the background)
         unique_values = np.unique(masks)
-        unique_values = unique_values[unique_values != 0]  # Exclude background (0)
+        unique_values = unique_values[unique_values != background_value]  # Exclude background (0)
 
         # Initialize lists to store binary masks and bounding boxes
         binary_masks = []
@@ -2533,7 +2535,7 @@ def train(
             print(f"Current Experiment ID: {EXPERIMENT_ID}")
             log(LOG_PATH, f"Current Experiment ID: {EXPERIMENT_ID}")
 
-        #mlflow.set_tracking_uri(None)
+        # mlflow.set_tracking_uri(None)
         mlflow.set_experiment(EXPERIMENT_NAME)
 
     if not os.path.exists(MODEL_SAVE_PATH):
@@ -2690,8 +2692,8 @@ def single_inference(model, image, configuration):
     
     
     # change to widht, height, masks
-    masks = masks.permute(2, 1, 0).numpy()    # .astype(int)
-    masks = (masks > 0.5).astype(np.uint8)
+    masks = masks.permute(2, 1, 0).numpy()# .astype(int)
+    masks = (masks > 0.9).astype(np.uint8)
 
     return classes, scores, boxes, masks
 
